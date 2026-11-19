@@ -202,3 +202,25 @@ export async function getStoreSettings(): Promise<StoreSettings> {
   if (error) fail("store settings", error.message);
   return data;
 }
+
+export type PaymentDetails = {
+  jazzcash_number: string | null;
+  jazzcash_account_name: string | null;
+  bank_name: string | null;
+  bank_account_title: string | null;
+  bank_account_number: string | null;
+  bank_iban: string | null;
+};
+
+/** The shop's own JazzCash / bank details that customers send money TO. */
+export async function getPaymentDetails(): Promise<PaymentDetails> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("catalog");
+  const { data, error } = await createPublicClient()
+    .from("store_settings")
+    .select("jazzcash_number, jazzcash_account_name, bank_name, bank_account_title, bank_account_number, bank_iban")
+    .single();
+  if (error) fail("payment details", error.message);
+  return data;
+}

@@ -30,7 +30,7 @@ Supabase
   - Customer pages never select them, so there's no column on `products` that could leak by accident.
   - Verified: with the public key, `product_costs` returns 0 rows, and even an embedded join returns `null`.
 - **Profit is never stored for customers to read.** It is computed in admin-only queries: selling total − supplier total.
-- **Orders will be created only by a server-side database function** (`place_order`, Stage 2). It:
+- **Orders are created only by a server-side database function** (`place_order`, built in Stage 2). It:
   - reads the current selling and supplier prices itself;
   - snapshots both prices into `order_items` and `order_item_costs`;
   - computes totals and the delivery fee.
@@ -47,6 +47,25 @@ Supabase
   - The app never asks for JazzCash PINs, bank passwords, CVVs or OTPs, and the Help page warns customers about this.
   - "Proof of payment" is a transaction reference plus an optional screenshot. An admin verifies it by checking the actual account; a screenshot alone is not proof.
 - **Security headers** are set in `next.config.ts`: nosniff, frame DENY, referrer policy, HSTS and permissions policy.
+
+### Sign-in and order placement (Stage 2)
+
+- **Phone + password sign-in, with no SMS cost.**
+  - Supabase Auth needs an email, so the mobile number `03XXXXXXXXX` becomes an internal login id: `92XXXXXXXXXX@<domain>`.
+  - `<domain>` is `AUTH_PHONE_EMAIL_DOMAIN`, or this project's Supabase host if that is unset. Supabase rejects `.local` and `.test`.
+  - Customers never see this id, and no email is sent to it.
+  - **Set the domain before launch and never change it afterwards.** Changing it breaks every existing login.
+- **Required Supabase setting:** Authentication → Sign In / Providers → Email → **"Confirm email" must be OFF**. If it is on, sign-up creates the user but gives no session, and the customer sees "could not create your account".
+- **Forgotten passwords:** customers call the shop. The admin sets a new password in Supabase → Authentication → Users. An in-app reset is a later stage.
+- **Session refresh:** `src/proxy.ts` (Next 16's replacement for middleware) refreshes the Supabase session cookie on every page request.
+  - Every page and server action still re-checks the user on the server (`getCurrentUser` / `requireUser`). Server actions are plain POSTs, so they never rely on the proxy.
+- **Checkout:**
+  - The browser sends only `{product id, qty}`, the chosen address id, the payment method, a note and a random request id.
+  - `place_order` (SECURITY DEFINER, empty `search_path`) checks the address belongs to the caller, that items are active, quantities are 1–50, and the minimum order is met.
+  - It then snapshots prices and records a `placed` status event.
+  - The request id makes it idempotent: a double tap or a retry returns the same order.
+  - The Supabase security advisor flags it as "SECURITY DEFINER callable by authenticated users". **This is intentional:** it is the only way customers can create orders. Execute is revoked from `anon` and `public`.
+- **Addresses:** RLS limits each customer to their own rows. A unique partial index allows one main address per customer, and each customer is capped at 10 addresses in the server action.
 
 ## 3. Database schema (summary)
 

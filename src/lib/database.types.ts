@@ -257,6 +257,7 @@ export type Database = {
       }
       orders: {
         Row: {
+          client_request_id: string | null
           created_at: string
           customer_note: string | null
           delivery_address: string
@@ -277,6 +278,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          client_request_id?: string | null
           created_at?: string
           customer_note?: string | null
           delivery_address: string
@@ -297,6 +299,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          client_request_id?: string | null
           created_at?: string
           customer_note?: string | null
           delivery_address?: string
@@ -655,7 +658,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      place_order: {
+        Args: {
+          p_address_id: string
+          p_items: Json
+          p_note?: string
+          p_payment_method: Database["public"]["Enums"]["payment_method"]
+          p_request_id?: string
+        }
+        Returns: Json
+      }
+      set_default_address: {
+        Args: { p_address_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       order_status:

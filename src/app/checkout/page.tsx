@@ -1,28 +1,42 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Suspense } from "react";
 import { PageTitle } from "@/components/page-title";
+import { BlockSkeleton } from "@/components/skeletons";
+import { requireUser } from "@/lib/auth";
+import { getMyAddresses } from "@/lib/account";
+import { getStoreSettings } from "@/lib/catalog";
+import { CheckoutForm } from "./checkout-form";
 
 export const metadata: Metadata = { title: "Checkout" };
 
-// Stage 2 replaces this page with sign-in, saved addresses, payment choice
-// and a server-side order RPC that recalculates every price.
-export default function CheckoutPage() {
+export default function CheckoutPage({ searchParams }: PageProps<"/checkout">) {
   return (
-    <>
+    <div className="mx-auto max-w-md">
       <PageTitle title="Checkout" backHref="/cart" backLabel="Cart" />
-      <div className="rounded-2xl bg-notice p-5 text-lg text-notice-foreground">
-        <p className="font-semibold">Online ordering is coming very soon.</p>
-        <p className="mt-2 text-base">
-          Your cart is saved on this phone. You will be able to sign in, choose your address and place the order
-          here in the next update.
-        </p>
-      </div>
-      <Link
-        href="/help"
-        className="mt-4 flex h-12 items-center justify-center rounded-xl border-2 text-base font-semibold"
-      >
-        Contact us
-      </Link>
-    </>
+      <Suspense fallback={<BlockSkeleton />}>
+        <Checkout searchParams={searchParams} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function Checkout({ searchParams }: { searchParams: PageProps<"/checkout">["searchParams"] }) {
+  const user = await requireUser("/checkout");
+  const [{ address: picked }, addresses, settings] = await Promise.all([
+    searchParams,
+    getMyAddresses(user.id),
+    getStoreSettings(),
+  ]);
+  // A just-added address (?address=<id>) is pre-selected, otherwise the main one.
+  const selected =
+    addresses.find((a) => a.id === picked)?.id ?? addresses.find((a) => a.is_default)?.id ?? addresses[0]?.id ?? null;
+
+  return (
+    <CheckoutForm
+      addresses={addresses}
+      selectedAddressId={selected}
+      deliveryFee={settings.delivery_fee}
+      minOrder={settings.min_order_amount}
+    />
   );
 }
