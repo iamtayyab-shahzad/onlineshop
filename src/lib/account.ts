@@ -65,8 +65,9 @@ export async function getMyOrder(userId: string, id: string) {
       `id, order_number, status, payment_method, payment_status, created_at,
        delivery_name, delivery_phone, delivery_area, delivery_address, delivery_landmark,
        customer_note, subtotal, delivery_fee, total,
-       order_items(id, product_id, product_name, unit_label, unit_price, quantity, line_total),
-       order_status_events(status, created_at)`,
+       order_items(id, product_id, product_name, unit_label, unit_name, unit_price, quantity, line_total, amount_requested),
+       order_status_events(status, created_at),
+       payment_proofs(id, status, transaction_ref, created_at)`,
     )
     .eq("user_id", userId)
     .eq("id", id)

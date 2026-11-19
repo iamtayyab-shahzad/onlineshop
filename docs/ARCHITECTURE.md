@@ -122,6 +122,19 @@ WhatsApp is never required from customers, and the app sends them no automatic W
 8. **Voice orders:** play the recording, build the item list, and create the order on the customer's behalf.
 9. **Reports:** sales, gross profit, top items, orders by status, and payments pending, by day, week or month.
 
+### What was built for Stages 3, 4 and 6
+
+- **Admin routes:** `/admin/login`, and under `src/app/admin/(panel)`: dashboard, orders (+ detail), payments, deliveries, voice, customers, reports, products (+ new/edit), images, categories, units, settings.
+- **Authorization:** `adminDb()` in `src/lib/auth.ts` runs `requireAdmin()` and then returns the cookie-session Supabase client. Every admin page and server action calls it, because layouts and pages render in parallel, so the layout guard alone is not enough. RLS (`private.is_admin()`) is the second check. There is no service-role key in the app.
+- **Uploads go straight from the browser to Storage** (server actions have a 1 MB body limit):
+  - product photos: `product-images/library/<sha256>.webp`. The hash dedupes them, and the server only accepts paths in that form;
+  - QR codes: `product-images/store/`;
+  - payment screenshots: `payment-proofs/<uid>/`, private;
+  - voice recordings: `voice-orders/<uid>/`, private. The admin plays them through short-lived signed URLs.
+- **Payments:** the customer sends a TID and an optional screenshot, and never a PIN, OTP or password. When the admin verifies or rejects it, the order is set to paid or unpaid and the reviewer is recorded.
+- **Voice orders:** the customer records up to 3 minutes and can pick an address and add a note. The admin listens, calls the customer, and can link the voice order to an order number.
+- **Old orders are safe:** order items keep snapshots of the name, unit and price, so editing or deleting a product does not change past orders.
+
 ## 6. Staged roadmap
 
 Each stage is small, complete and testable.
@@ -159,7 +172,7 @@ Each stage is small, complete and testable.
    - delivery areas and hours;
    - support phone/WhatsApp;
    - the partner shop's WhatsApp number.
-3. **JazzCash and bank account details** to show customers.
+3. **JazzCash and bank account details** to show customers. You can now enter these yourself in Admin → Settings → Payment accounts.
 4. **Supabase dashboard setting for Stage 2:** turn **off** Authentication → Sign In / Providers → Email → *Confirm email*. Phone+password sign-in uses an internal email-style id, and Supabase's built-in mailer cannot deliver to it.
-5. **First admin account:** after you sign up in Stage 2, your profile is promoted to `admin` with one SQL update.
+5. **First admin account:** after you sign up, run the SQL update shown in the README (Admin panel section).
 6. **SMS OTP:** confirm whether phone + password is acceptable for now.

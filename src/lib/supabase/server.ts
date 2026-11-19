@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@/lib/database.types";
 
@@ -9,6 +10,8 @@ import type { Database } from "@/lib/database.types";
  * Create a new one for each request; never use it inside 'use cache'.
  */
 export async function createClient() {
+  // Session checks compare token expiry with the clock, so mark this render as request-time.
+  await connection();
   const cookieStore = await cookies();
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

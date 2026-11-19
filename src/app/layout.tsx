@@ -1,8 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Suspense } from "react";
-import { AppHeader, AppHeaderFallback } from "@/components/app-header";
-import { BottomNav, BottomNavFallback } from "@/components/bottom-nav";
-import { ServiceWorkerRegister } from "@/components/sw-register";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,16 +19,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="min-h-dvh">
-        <Suspense fallback={<AppHeaderFallback />}>
-          <AppHeader />
-        </Suspense>
-        <main className="mx-auto max-w-3xl px-4 pt-4 pb-28">{children}</main>
-        <Suspense fallback={<BottomNavFallback />}>
-          <BottomNav />
-        </Suspense>
-        <ServiceWorkerRegister />
-      </body>
+      <body className="min-h-dvh">{children}</body>
     </html>
   );
 }

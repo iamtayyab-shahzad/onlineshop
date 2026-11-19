@@ -63,3 +63,22 @@ export function safeNextPath(value: unknown, fallback = "/account"): string {
   if (value.length > 200) return fallback;
   return value;
 }
+
+/**
+ * Guard for every admin page and admin server action. The role is read from
+ * the database on each request (never from the browser), and Row Level
+ * Security checks it again inside Postgres.
+ */
+export async function requireAdmin(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/admin/login");
+  if (!user.isAdmin) redirect("/admin/login?denied=1");
+  return user;
+}
+
+/** Supabase client for admin pages and actions: checks the admin role first, every time. */
+export async function adminDb() {
+  const user = await requireAdmin();
+  const supabase = await createClient();
+  return { user, supabase };
+}

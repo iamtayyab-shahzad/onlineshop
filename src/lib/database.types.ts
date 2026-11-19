@@ -164,6 +164,7 @@ export type Database = {
       }
       order_items: {
         Row: {
+          amount_requested: number | null
           created_at: string
           id: string
           line_total: number
@@ -172,9 +173,11 @@ export type Database = {
           product_name: string
           quantity: number
           unit_label: string
+          unit_name: string | null
           unit_price: number
         }
         Insert: {
+          amount_requested?: number | null
           created_at?: string
           id?: string
           line_total: number
@@ -183,9 +186,11 @@ export type Database = {
           product_name: string
           quantity: number
           unit_label: string
+          unit_name?: string | null
           unit_price: number
         }
         Update: {
+          amount_requested?: number | null
           created_at?: string
           id?: string
           line_total?: number
@@ -194,6 +199,7 @@ export type Database = {
           product_name?: string
           quantity?: number
           unit_label?: string
+          unit_name?: string | null
           unit_price?: number
         }
         Relationships: [
@@ -422,6 +428,50 @@ export type Database = {
           },
         ]
       }
+      product_images: {
+        Row: {
+          created_at: string
+          height: number | null
+          id: string
+          original_name: string
+          path: string
+          product_id: string | null
+          sha256: string
+          sort_order: number
+          width: number | null
+        }
+        Insert: {
+          created_at?: string
+          height?: number | null
+          id?: string
+          original_name: string
+          path: string
+          product_id?: string | null
+          sha256: string
+          sort_order?: number
+          width?: number | null
+        }
+        Update: {
+          created_at?: string
+          height?: number | null
+          id?: string
+          original_name?: string
+          path?: string
+          product_id?: string | null
+          sha256?: string
+          sort_order?: number
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_images_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           category_id: string
@@ -429,13 +479,21 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          in_stock: boolean
           is_active: boolean
           is_featured: boolean
+          max_amount: number | null
+          max_qty: number
+          min_amount: number | null
+          min_qty: number
           name: string
           name_urdu: string | null
+          purchase_method: Database["public"]["Enums"]["purchase_method"]
+          qty_step: number
           selling_price: number
           slug: string
           sort_order: number
+          unit_id: string
           unit_label: string
           updated_at: string
         }
@@ -445,13 +503,21 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          in_stock?: boolean
           is_active?: boolean
           is_featured?: boolean
+          max_amount?: number | null
+          max_qty?: number
+          min_amount?: number | null
+          min_qty?: number
           name: string
           name_urdu?: string | null
+          purchase_method?: Database["public"]["Enums"]["purchase_method"]
+          qty_step?: number
           selling_price: number
           slug: string
           sort_order?: number
+          unit_id: string
           unit_label: string
           updated_at?: string
         }
@@ -461,13 +527,21 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          in_stock?: boolean
           is_active?: boolean
           is_featured?: boolean
+          max_amount?: number | null
+          max_qty?: number
+          min_amount?: number | null
+          min_qty?: number
           name?: string
           name_urdu?: string | null
+          purchase_method?: Database["public"]["Enums"]["purchase_method"]
+          qty_step?: number
           selling_price?: number
           slug?: string
           sort_order?: number
+          unit_id?: string
           unit_label?: string
           updated_at?: string
         }
@@ -477,6 +551,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
             referencedColumns: ["id"]
           },
         ]
@@ -541,12 +622,17 @@ export type Database = {
           bank_account_title: string | null
           bank_iban: string | null
           bank_name: string | null
+          bank_qr_url: string | null
           delivery_areas: string | null
           delivery_fee: number
           delivery_hours: string | null
+          easypaisa_account_name: string | null
+          easypaisa_number: string | null
+          easypaisa_qr_url: string | null
           id: boolean
           jazzcash_account_name: string | null
           jazzcash_number: string | null
+          jazzcash_qr_url: string | null
           min_order_amount: number
           store_name: string
           support_phone: string | null
@@ -558,12 +644,17 @@ export type Database = {
           bank_account_title?: string | null
           bank_iban?: string | null
           bank_name?: string | null
+          bank_qr_url?: string | null
           delivery_areas?: string | null
           delivery_fee?: number
           delivery_hours?: string | null
+          easypaisa_account_name?: string | null
+          easypaisa_number?: string | null
+          easypaisa_qr_url?: string | null
           id?: boolean
           jazzcash_account_name?: string | null
           jazzcash_number?: string | null
+          jazzcash_qr_url?: string | null
           min_order_amount?: number
           store_name?: string
           support_phone?: string | null
@@ -575,17 +666,52 @@ export type Database = {
           bank_account_title?: string | null
           bank_iban?: string | null
           bank_name?: string | null
+          bank_qr_url?: string | null
           delivery_areas?: string | null
           delivery_fee?: number
           delivery_hours?: string | null
+          easypaisa_account_name?: string | null
+          easypaisa_number?: string | null
+          easypaisa_qr_url?: string | null
           id?: boolean
           jazzcash_account_name?: string | null
           jazzcash_number?: string | null
+          jazzcash_qr_url?: string | null
           min_order_amount?: number
           store_name?: string
           support_phone?: string | null
           support_whatsapp?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      units: {
+        Row: {
+          allow_decimal: boolean
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          allow_decimal?: boolean
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          allow_decimal?: boolean
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
         }
         Relationships: []
       }
@@ -658,6 +784,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_sales_report: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          day: string
+          orders: number
+          profit: number
+          sales: number
+          supplier_cost: number
+        }[]
+      }
+      admin_set_order_status: {
+        Args: {
+          p_note?: string
+          p_order_id: string
+          p_status: Database["public"]["Enums"]["order_status"]
+        }
+        Returns: undefined
+      }
       place_order: {
         Args: {
           p_address_id: string
@@ -682,9 +826,10 @@ export type Database = {
         | "out_for_delivery"
         | "delivered"
         | "cancelled"
-      payment_method: "cod" | "jazzcash" | "bank_transfer"
+      payment_method: "cod" | "jazzcash" | "bank_transfer" | "easypaisa"
       payment_proof_status: "submitted" | "verified" | "rejected"
       payment_status: "unpaid" | "pending_verification" | "paid" | "refunded"
+      purchase_method: "quantity" | "amount" | "both"
       user_role: "customer" | "admin"
       voice_order_status: "new" | "converted" | "rejected"
     }
@@ -823,9 +968,10 @@ export const Constants = {
         "delivered",
         "cancelled",
       ],
-      payment_method: ["cod", "jazzcash", "bank_transfer"],
+      payment_method: ["cod", "jazzcash", "bank_transfer", "easypaisa"],
       payment_proof_status: ["submitted", "verified", "rejected"],
       payment_status: ["unpaid", "pending_verification", "paid", "refunded"],
+      purchase_method: ["quantity", "amount", "both"],
       user_role: ["customer", "admin"],
       voice_order_status: ["new", "converted", "rejected"],
     },

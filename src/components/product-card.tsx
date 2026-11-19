@@ -3,17 +3,9 @@ import type { Product } from "@/lib/catalog";
 import { formatPrice } from "@/lib/format";
 import { AddToCartButton } from "@/components/add-to-cart-button";
 import { ProductImage } from "@/components/product-image";
+import { toCartItem } from "@/lib/catalog-item";
 
-export function toCartItem(p: Product) {
-  return {
-    id: p.id,
-    slug: p.slug,
-    name: p.name,
-    unit: p.unit_label,
-    price: p.selling_price,
-    icon: p.category?.icon ?? null,
-  };
-}
+export { toCartItem };
 
 export function ProductCard({ product }: { product: Product }) {
   return (
@@ -30,8 +22,11 @@ export function ProductCard({ product }: { product: Product }) {
           <p className="text-sm text-muted-foreground">{product.unit_label}</p>
         </div>
         <p className="text-lg font-bold">{formatPrice(product.selling_price)}</p>
+        {product.purchase_method !== "quantity" && product.min_amount != null && (
+          <p className="text-sm font-medium text-primary">Buy from {formatPrice(product.min_amount)}</p>
+        )}
       </Link>
-      <AddToCartButton item={toCartItem(product)} className="mt-2" />
+      <AddToCartButton item={toCartItem(product)} inStock={product.in_stock} className="mt-2" />
     </div>
   );
 }

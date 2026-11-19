@@ -14,10 +14,10 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design, database s
 |---|---|---|
 | 1 | Foundation: database + security, catalog, search, cart, help, installable PWA | ✅ Done |
 | 2 | Phone sign-in, profile, addresses, checkout, order success, My Orders | 🟡 Built; end-to-end test waits for one Supabase setting (below) |
-| 3 | Admin: products & two prices, orders, status, WhatsApp packing message, profit | |
-| 4 | Payments: JazzCash / bank transfer proof upload + manual verification | |
+| 3 | Admin: products & two prices, units, categories, photos, orders, status, WhatsApp packing message, profit | 🟡 Built; needs your admin account (below) |
+| 4 | Payments: JazzCash / Easypaisa / bank details + QR set by admin, customer proof (TID + screenshot), manual verification | 🟡 Built |
 | 5 | My Monthly List + one-tap reorder | |
-| 6 | Voice orders (record → admin converts to items) | |
+| 6 | Voice orders: customer records a message, admin listens and calls back | 🟡 Built |
 | 7 | Reports + production deploy on Vercel | |
 
 ## Run it locally
@@ -40,10 +40,34 @@ All schema changes are kept as SQL files in [`supabase/migrations`](supabase/mig
 2. `…_seed_sample_catalog.sql` – **sample** categories, products and prices (replace before launch)
 3. `…_hide_internal_functions.sql` – moves helper functions out of the public API
 4. `20261118190000_checkout_and_addresses.sql` – address limits, one main address, the `place_order` and `set_default_address` functions, idempotent order requests
+5. `20261119100000_admin_units_images_payments.sql` – admin-managed units (decimal or whole), buy-by-amount, product photo library, payment accounts, payment proofs, voice orders, admin RPCs and reports
 
 **Required Supabase setting (Stage 2):** in Authentication → Sign In / Providers → Email, turn **"Confirm email" OFF**.
 Customers sign in with their mobile number and password, and there is no email to confirm.
 Optional: set `AUTH_PHONE_EMAIL_DOMAIN` in `.env.local` / Vercel **before launch**, and never change it afterwards. See docs/ARCHITECTURE.md.
+
+## Admin panel (Stages 3, 4, 6)
+
+Open **/admin** (sign in at /admin/login). Every admin page and action checks the admin role on the server, and Row Level Security checks it again in the database.
+
+**Make your account the admin (one time).** Sign up in the shop with your mobile number, then run this in Supabase → SQL Editor (use your number in `03XXXXXXXXX` form):
+
+```sql
+update public.profiles set role = 'admin' where phone = '03XXXXXXXXX';
+```
+
+Then, in the admin panel:
+
+1. **Settings → Payment accounts:** enter the JazzCash / Easypaisa number, the bank account details, and upload the QR codes. Customers see these after ordering.
+2. **Units:** add or rename units, and choose whether each allows decimals (kg) or only whole numbers (packet).
+3. **Images:** drag in the photos from `pictures/optimized/`. Files with the same name as a product are suggested as matches; tick the ones that are right and confirm. Duplicates are skipped automatically.
+4. **Products:** set the selling and supplier prices, unit, buy by quantity and/or amount, min/max, stock and the featured flag. Deleting a product never changes old orders.
+
+Payments are verified **by hand**: check your real JazzCash/bank account for the TID before you press *Verify*. A screenshot alone is not proof. Voice orders appear under **Voice orders**; listen, call the customer, and mark them done.
+
+**Photos:** `node scripts/optimize-pictures.mjs` turns `pictures/` into web-ready WebP files in `pictures/optimized/`. It only resizes and compresses your real photos; it does not create new angles.
+
+**Supabase security setting:** turn on Authentication → Passwords → *Leaked password protection*.
 
 Regenerate TypeScript types after a schema change and save them to `src/lib/database.types.ts`.
 

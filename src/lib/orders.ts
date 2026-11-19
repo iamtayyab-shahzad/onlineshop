@@ -28,6 +28,7 @@ export const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   cod: "Cash on delivery",
   jazzcash: "JazzCash",
   bank_transfer: "Bank transfer",
+  easypaisa: "Easypaisa",
 };
 
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
@@ -37,7 +38,7 @@ export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   refunded: "Refunded",
 };
 
-export const PAYMENT_METHODS: PaymentMethod[] = ["cod", "jazzcash", "bank_transfer"];
+export const PAYMENT_METHODS: PaymentMethod[] = ["cod", "jazzcash", "easypaisa", "bank_transfer"];
 
 export function formatDate(iso: string): string {
   return new Intl.DateTimeFormat("en-PK", {

@@ -9,8 +9,8 @@ import { createPublicClient } from "@/lib/supabase/public";
  * Supplier prices live in the admin-only `product_costs` table and are never
  * selected here. Do not add `*` selects or joins to cost tables in this file.
  *
- * Results are cached and tagged "catalog"; admin edits (Stage 3) will call
- * revalidateTag("catalog") so customers see new prices straight away.
+ * Results are cached and tagged "catalog"; admin edits call
+ * updateTag("catalog") so customers see new prices straight away.
  */
 
 export type Category = {
@@ -30,7 +30,15 @@ export type Product = {
   description: string | null;
   image_url: string | null;
   selling_price: number;
+  purchase_method: "quantity" | "amount" | "both";
+  min_qty: number;
+  max_qty: number;
+  qty_step: number;
+  min_amount: number | null;
+  max_amount: number | null;
+  in_stock: boolean;
   category: { slug: string; name: string; icon: string | null } | null;
+  unit: { name: string; allow_decimal: boolean } | null;
 };
 
 export type StoreSettings = {
@@ -45,7 +53,7 @@ export type StoreSettings = {
 
 const CATEGORY_COLUMNS = "id, name, name_urdu, slug, icon";
 const PRODUCT_COLUMNS =
-  "id, slug, name, name_urdu, unit_label, description, image_url, selling_price, category:categories(slug, name, icon)";
+  "id, slug, name, name_urdu, unit_label, description, image_url, selling_price, purchase_method, min_qty, max_qty, qty_step, min_amount, max_amount, in_stock, category:categories(slug, name, icon), unit:units(name, allow_decimal)";
 
 function fail(context: string, message: string): never {
   throw new Error(`Could not load ${context}: ${message}`);
@@ -210,17 +218,35 @@ export type PaymentDetails = {
   bank_account_title: string | null;
   bank_account_number: string | null;
   bank_iban: string | null;
+  easypaisa_number: string | null;
+  easypaisa_account_name: string | null;
+  jazzcash_qr_url: string | null;
+  easypaisa_qr_url: string | null;
+  bank_qr_url: string | null;
 };
 
-/** The shop's own JazzCash / bank details that customers send money TO. */
+/** The shop's own JazzCash / Easypaisa / bank details (and QR codes) that customers send money TO. */
 export async function getPaymentDetails(): Promise<PaymentDetails> {
   "use cache";
   cacheLife("hours");
   cacheTag("catalog");
   const { data, error } = await createPublicClient()
     .from("store_settings")
-    .select("jazzcash_number, jazzcash_account_name, bank_name, bank_account_title, bank_account_number, bank_iban")
+    .select(
+      "jazzcash_number, jazzcash_account_name, bank_name, bank_account_title, bank_account_number, bank_iban, easypaisa_number, easypaisa_account_name, jazzcash_qr_url, easypaisa_qr_url, bank_qr_url",
+    )
     .single();
   if (error) fail("payment details", error.message);
   return data;
+}
+
+type Method = "cod" | "jazzcash" | "easypaisa" | "bank_transfer";
+
+/** COD always; online methods only once the shop has entered its account details (place_order checks this too). */
+export function availablePaymentMethods(pay: PaymentDetails): Method[] {
+  const methods: Method[] = ["cod"];
+  if (pay.jazzcash_number) methods.push("jazzcash");
+  if (pay.easypaisa_number) methods.push("easypaisa");
+  if (pay.bank_account_number || pay.bank_iban) methods.push("bank_transfer");
+  return methods;
 }
