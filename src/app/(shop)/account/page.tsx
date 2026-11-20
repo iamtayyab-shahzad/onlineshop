@@ -9,12 +9,12 @@ import { signOut } from "@/app/auth-actions";
 
 export const metadata: Metadata = { title: "My account" };
 
-// Exactly five sections, as agreed. My Monthly List arrives in Stage 5.
+// Exactly five sections, as agreed.
 const SECTIONS = [
   { label: "Profile", hint: "Your name and phone number", icon: UserRound, href: "/account/profile" },
   { label: "My Orders", hint: "Track and view past orders", icon: Package, href: "/account/orders" },
   { label: "My Addresses", hint: "Saved delivery addresses", icon: MapPin, href: "/account/addresses" },
-  { label: "My Monthly List", hint: "Your regular items, ready to reorder", icon: ClipboardList, href: null },
+  { label: "My Monthly List", hint: "Your regular items, ready to reorder", icon: ClipboardList, href: "/account/monthly" },
   { label: "Help / Contact", hint: "Call us, delivery times, how to order", icon: CircleHelp, href: "/help" },
 ] as const;
 

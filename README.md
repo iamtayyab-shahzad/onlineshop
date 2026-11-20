@@ -16,9 +16,9 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full design, database s
 | 2 | Phone sign-in, profile, addresses, checkout, order success, My Orders | 🟡 Built; end-to-end test waits for one Supabase setting (below) |
 | 3 | Admin: products & two prices, units, categories, photos, orders, status, WhatsApp packing message, profit | 🟡 Built; needs your admin account (below) |
 | 4 | Payments: JazzCash / Easypaisa / bank details + QR set by admin, customer proof (TID + screenshot), manual verification | 🟡 Built |
-| 5 | My Monthly List + one-tap reorder | |
+| 5 | My Monthly List (save from a product or the cart, change quantities, add all to cart) + one-tap reorder | 🟡 Built |
 | 6 | Voice orders: customer records a message, admin listens and calls back | 🟡 Built |
-| 7 | Reports + production deploy on Vercel | |
+| 7 | Reports (built) + production deploy on Vercel | See "Deploy" below |
 
 ## Run it locally
 
@@ -41,10 +41,18 @@ All schema changes are kept as SQL files in [`supabase/migrations`](supabase/mig
 3. `…_hide_internal_functions.sql` – moves helper functions out of the public API
 4. `20261118190000_checkout_and_addresses.sql` – address limits, one main address, the `place_order` and `set_default_address` functions, idempotent order requests
 5. `20261119100000_admin_units_images_payments.sql` – admin-managed units (decimal or whole), buy-by-amount, product photo library, payment accounts, payment proofs, voice orders, admin RPCs and reports
+6. `20261120090000_monthly_list_decimals.sql` – Monthly List quantities can be decimals, and "Rs X worth" lines
 
 **Required Supabase setting (Stage 2):** in Authentication → Sign In / Providers → Email, turn **"Confirm email" OFF**.
 Customers sign in with their mobile number and password, and there is no email to confirm.
 Optional: set `AUTH_PHONE_EMAIL_DOMAIN` in `.env.local` / Vercel **before launch**, and never change it afterwards. See docs/ARCHITECTURE.md.
+
+## Deploy (Vercel)
+
+1. Push the repository to GitHub and import it in Vercel (framework: Next.js, default build settings).
+2. Add two environment variables (Production and Preview): `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Never add a service-role key.
+3. Deploy, then in Supabase → Authentication → URL Configuration set **Site URL** to your Vercel address.
+4. Do the admin setup below on the live site. Use https, because the microphone and "Add to Home Screen" need it.
 
 ## Admin panel (Stages 3, 4, 6)
 

@@ -102,18 +102,21 @@ export type Database = {
       }
       monthly_list_items: {
         Row: {
+          amount: number | null
           created_at: string
           product_id: string
           quantity: number
           user_id: string
         }
         Insert: {
+          amount?: number | null
           created_at?: string
           product_id: string
           quantity?: number
           user_id: string
         }
         Update: {
+          amount?: number | null
           created_at?: string
           product_id?: string
           quantity?: number

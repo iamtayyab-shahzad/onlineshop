@@ -7,6 +7,7 @@ import { cart, lineTotal, ruleOf, useCart } from "@/lib/cart-store";
 import { formatPrice } from "@/lib/format";
 import { formatQty } from "@/lib/quantity";
 import { QtyStepper } from "@/components/add-to-cart-button";
+import { SaveCartButton } from "@/components/save-to-monthly";
 import { refreshCartItems } from "./actions";
 
 const noop = () => () => {};
@@ -153,6 +154,7 @@ export function CartView({ deliveryFee, minOrder }: { deliveryFee: number; minOr
       >
         {shortBy > 0 ? "Add more items" : "Continue to checkout"}
       </Link>
+      <SaveCartButton />
     </div>
   );
 }

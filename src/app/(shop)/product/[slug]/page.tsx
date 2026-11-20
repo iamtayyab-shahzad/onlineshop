@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { getAllProductSlugs, getProductBySlug } from "@/lib/catalog";
 import { formatPrice } from "@/lib/format";
 import { AddToCartButton, AmountPicker } from "@/components/add-to-cart-button";
+import { SaveProductButton } from "@/components/save-to-monthly";
 import { toCartItem } from "@/lib/catalog-item";
 import { ProductImage } from "@/components/product-image";
 import { PageTitle } from "@/components/page-title";
@@ -55,6 +56,7 @@ async function ProductContent({ params }: { params: Promise<{ slug: string }> })
       {product.in_stock && product.purchase_method !== "quantity" && product.min_amount != null && (
         <AmountPicker item={toCartItem(product)} />
       )}
+      {product.in_stock && <SaveProductButton item={toCartItem(product)} />}
       <Link
         href="/cart"
         className="flex h-12 items-center justify-center rounded-xl border-2 text-base font-semibold"

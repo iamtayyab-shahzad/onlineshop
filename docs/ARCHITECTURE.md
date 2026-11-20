@@ -135,6 +135,13 @@ WhatsApp is never required from customers, and the app sends them no automatic W
 - **Voice orders:** the customer records up to 3 minutes and can pick an address and add a note. The admin listens, calls the customer, and can link the voice order to an order number.
 - **Old orders are safe:** order items keep snapshots of the name, unit and price, so editing or deleting a product does not change past orders.
 
+### Stage 5: My Monthly List
+
+- Stored in `monthly_list_items` (one row per customer and product; RLS limits rows to the owner). Quantity is `numeric` and an optional `amount` holds "Rs X worth" lines.
+- Server actions (`src/app/(shop)/account/monthly/actions.ts`) check every quantity against the product's current rules, using the same helpers as the cart, and never accept a price.
+- "Add all to cart" runs in the browser against freshly fetched public prices, so the cart and checkout still recalculate everything on the server.
+- Save buttons: product page and cart page. Unavailable products stay listed as "Not available right now" so the customer can remove them.
+
 ## 6. Staged roadmap
 
 Each stage is small, complete and testable.
