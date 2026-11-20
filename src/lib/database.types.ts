@@ -139,6 +139,30 @@ export type Database = {
           },
         ]
       }
+      notification_settings: {
+        Row: {
+          admin_whatsapp: string | null
+          alerts_enabled: boolean
+          id: boolean
+          secret_hash: string | null
+          updated_at: string
+        }
+        Insert: {
+          admin_whatsapp?: string | null
+          alerts_enabled?: boolean
+          id?: boolean
+          secret_hash?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admin_whatsapp?: string | null
+          alerts_enabled?: boolean
+          id?: boolean
+          secret_hash?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_item_costs: {
         Row: {
           order_item_id: string
@@ -218,6 +242,53 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_notifications: {
+        Row: {
+          attempts: number
+          claimed_at: string | null
+          created_at: string
+          id: string
+          last_error: string | null
+          order_id: string
+          recipient: string
+          sent_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          order_id: string
+          recipient: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          order_id?: string
+          recipient?: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_notifications_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
@@ -803,6 +874,14 @@ export type Database = {
           p_order_id: string
           p_status: Database["public"]["Enums"]["order_status"]
         }
+        Returns: undefined
+      }
+      claim_order_notification: {
+        Args: { p_force?: boolean; p_order_id: string; p_recipient: string; p_secret: string }
+        Returns: Json
+      }
+      record_order_notification: {
+        Args: { p_error?: string; p_ok: boolean; p_order_id: string; p_recipient: string; p_secret: string }
         Returns: undefined
       }
       place_order: {

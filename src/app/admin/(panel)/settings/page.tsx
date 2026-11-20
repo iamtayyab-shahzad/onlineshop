@@ -1,17 +1,20 @@
 import type { Metadata } from "next";
 import { adminDb } from "@/lib/auth";
 import { ActionForm } from "@/components/admin/action-form";
-import { AdminTitle, Card, Input, inputCls } from "@/components/admin/admin-ui";
+import { AdminTitle, Card, Check, Input, inputCls } from "@/components/admin/admin-ui";
 import { QrField } from "@/components/admin/qr-field";
 import { savePaymentAccounts, saveShop, saveStoreSettings } from "@/app/admin/_actions/settings";
+import { retryFailedNotifications, saveNotificationSettings } from "@/app/admin/_actions/notifications";
 
 export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const { supabase } = await adminDb();
-  const [{ data: s }, { data: shop }] = await Promise.all([
+  const [{ data: s }, { data: shop }, { data: alerts }, { count: failedAlerts }] = await Promise.all([
     supabase.from("store_settings").select("*").eq("id", true).single(),
     supabase.from("shops").select("id, name, whatsapp_phone, address").eq("is_default", true).maybeSingle(),
+    supabase.from("notification_settings").select("alerts_enabled, admin_whatsapp").eq("id", true).maybeSingle(),
+    supabase.from("order_notifications").select("id", { count: "exact", head: true }).eq("status", "failed"),
   ]);
   if (!s) return <p>Store settings row is missing.</p>;
   return (
@@ -72,10 +75,48 @@ export default async function SettingsPage() {
           {shop && <input type="hidden" name="id" value={shop.id} />}
           <div className="grid gap-3 md:grid-cols-3">
             <Input label="Shop name" name="name" required defaultValue={shop?.name ?? ""} />
-            <Input label="Shop WhatsApp" name="whatsapp_phone" defaultValue={shop?.whatsapp_phone ?? ""} inputMode="tel" hint="e.g. 03001234567" />
+            <Input
+              label="Shop WhatsApp"
+              name="whatsapp_phone"
+              defaultValue={shop?.whatsapp_phone ?? ""}
+              inputMode="tel"
+              hint="e.g. 03001234567. This number gets the automatic supplier-price message for every new order."
+            />
             <Input label="Address" name="address" defaultValue={shop?.address ?? ""} />
           </div>
         </ActionForm>
+      </Card>
+
+      <Card title="Order alerts (WhatsApp)">
+        <p className="mb-3 text-sm text-muted-foreground">
+          When a customer places an order, two messages are sent automatically. <b>You</b> get the customer, address,
+          items, selling prices and total. The <b>shop</b> (number above) gets only product names, quantities and supplier
+          prices. An order is always saved, even if WhatsApp fails; failed messages can be sent again.
+        </p>
+        <ActionForm action={saveNotificationSettings} submit="Save alerts">
+          <div className="grid gap-3 md:grid-cols-2">
+            <Input
+              label="Your (admin) WhatsApp"
+              name="admin_whatsapp"
+              defaultValue={alerts?.admin_whatsapp ?? ""}
+              inputMode="tel"
+              hint="e.g. 03001234567. Leave empty to use the number saved on the server."
+            />
+            <div className="flex items-end pb-2">
+              <Check label="Send automatic order alerts" name="alerts_enabled" defaultChecked={alerts?.alerts_enabled ?? true} />
+            </div>
+          </div>
+        </ActionForm>
+        <div className="mt-4 flex flex-wrap items-center gap-3 border-t pt-3">
+          <p className="text-sm">
+            {failedAlerts ? (
+              <span className="font-semibold text-destructive">{failedAlerts} message(s) failed to send.</span>
+            ) : (
+              <span className="text-muted-foreground">No failed messages.</span>
+            )}
+          </p>
+          <ActionForm action={retryFailedNotifications} submit="Retry failed messages" inline />
+        </div>
       </Card>
     </div>
   );

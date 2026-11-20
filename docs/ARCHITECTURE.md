@@ -142,6 +142,15 @@ WhatsApp is never required from customers, and the app sends them no automatic W
 - "Add all to cart" runs in the browser against freshly fetched public prices, so the cart and checkout still recalculate everything on the server.
 - Save buttons: product page and cart page. Unavailable products stay listed as "Not available right now" so the customer can remove them.
 
+### WhatsApp order alerts
+
+- **Flow:** `placeOrder` saves the order through `place_order`, then `after(() => notifyOrder(...))` (`src/lib/order-notify.ts`). `after` runs once the customer already has their answer, and `notifyOrder` never throws.
+- **Queue:** a trigger on `orders` inserts one `order_notifications` row per recipient (`admin`, `shop`; unique per order). `claim_order_notification` atomically moves a row to `sending` (a stale claim older than 2 minutes can be taken again) and returns the message data, or null if it was already sent. `record_order_notification` stores sent or failed and the reason.
+- **Why a secret, not a service key:** the app has no service-role key and supplier prices are admin-only under RLS. Both functions are `security definer` and refuse unless the caller passes `NOTIFY_SECRET` (compared with the SHA-256 hash in `notification_settings.secret_hash`, which no API role can read). Each recipient's payload is built inside the function, so the admin payload has no supplier prices and the shop payload has no customer details or selling prices.
+- **Numbers:** admin number in `notification_settings` (admin-only table; `store_settings` is public so it is not used), shop number is `shops.whatsapp_phone`. Env vars `ORDER_ADMIN_WHATSAPP` / `ORDER_SHOP_WHATSAPP` are fallbacks.
+- **WAHA:** `src/lib/waha.ts` posts to `/api/sendText` with the `X-Api-Key` header, server-side only, 45 s timeout (a sleeping free-tier server can be slow to wake).
+- **Retries:** manual from the order page or Settings. Automatic retry would need a scheduled job.
+
 ## 6. Staged roadmap
 
 Each stage is small, complete and testable.

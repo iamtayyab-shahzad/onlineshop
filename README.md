@@ -42,6 +42,8 @@ All schema changes are kept as SQL files in [`supabase/migrations`](supabase/mig
 4. `20261118190000_checkout_and_addresses.sql` – address limits, one main address, the `place_order` and `set_default_address` functions, idempotent order requests
 5. `20261119100000_admin_units_images_payments.sql` – admin-managed units (decimal or whole), buy-by-amount, product photo library, payment accounts, payment proofs, voice orders, admin RPCs and reports
 6. `20261120090000_monthly_list_decimals.sql` – Monthly List quantities can be decimals, and "Rs X worth" lines
+7. `20261120100000_table_grants.sql` – explicit table access for new Supabase projects (Row Level Security still decides which rows)
+8. `20261121090000_whatsapp_notifications.sql` – automatic WhatsApp order alerts: notification queue + status, admin-only settings, and the secret-protected functions that build each message
 
 **Required Supabase setting (Stage 2):** in Authentication → Sign In / Providers → Email, turn **"Confirm email" OFF**.
 Customers sign in with their mobile number and password, and there is no email to confirm.
@@ -53,6 +55,23 @@ Optional: set `AUTH_PHONE_EMAIL_DOMAIN` in `.env.local` / Vercel **before launch
 2. Add two environment variables (Production and Preview): `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Never add a service-role key.
 3. Deploy, then in Supabase → Authentication → URL Configuration set **Site URL** to your Vercel address.
 4. Do the admin setup below on the live site. Use https, because the microphone and "Add to Home Screen" need it.
+
+## WhatsApp order alerts
+
+When an order is saved, the server sends two WhatsApp messages through your WAHA server, after the customer already has their confirmation:
+
+- **Admin:** customer name, phone, address, items, selling prices, total.
+- **Shop:** product names, quantities, supplier prices and supplier total only.
+
+An order never depends on WhatsApp. Each message has a row in `order_notifications` (pending / sending / sent / failed, tries, last error), so nothing is sent twice and failures can be resent from **Admin → order page** or **Settings → Retry failed messages**. Admin number and on/off: **Settings → Order alerts**. Shop number: **Settings → Supplier shop**.
+
+Setup (once):
+
+1. Run migration 8 (it is also at the end of `supabase/full_setup.sql`).
+2. Add to `.env.local` and to Vercel (Production + Preview): `WAHA_BASE_URL`, `WAHA_API_KEY`, `WAHA_SESSION`, `NOTIFY_SECRET`, and optionally `ORDER_ADMIN_WHATSAPP` / `ORDER_SHOP_WHATSAPP` (fallbacks when Settings is empty). See `.env.example`.
+3. Store the secret's hash in the database. Hash your `NOTIFY_SECRET` with `node -e "console.log(require('crypto').createHash('sha256').update(process.argv[1]).digest('hex'))" "<your secret>"`, then run in the SQL Editor: `update public.notification_settings set secret_hash = '<that hash>';`
+
+Why a secret: supplier prices are admin-only in the database. The message text is built by database functions that only answer a server that knows `NOTIFY_SECRET`, so a customer's own login cannot read them. There is no service-role key in the app.
 
 ## Admin panel (Stages 3, 4, 6)
 

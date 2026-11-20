@@ -1,6 +1,8 @@
 "use server";
 
+import { after } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { notifyOrder } from "@/lib/order-notify";
 import { PAYMENT_METHODS, type PaymentMethod } from "@/lib/orders";
 import { createClient } from "@/lib/supabase/server";
 
@@ -82,5 +84,9 @@ export async function placeOrder(input: unknown): Promise<PlaceOrderResult> {
   }
   const id = (data as { id?: unknown } | null)?.id;
   if (typeof id !== "string") return { ok: false, error: "We could not place your order. Please try again." };
+
+  // The order is saved. Tell the admin and the shop on WhatsApp after the customer already has
+  // their answer. This can never fail the order: problems are stored and can be retried by the admin.
+  after(() => notifyOrder(supabase, id));
   return { ok: true, id };
 }

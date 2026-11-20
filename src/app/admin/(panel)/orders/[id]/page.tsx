@@ -4,6 +4,7 @@ import { adminDb } from "@/lib/auth";
 import { ActionForm, CopyButton } from "@/components/admin/action-form";
 import { ADMIN_STATUS_LABEL, AdminTitle, Card, PayBadge, Select, StatusBadge, inputCls } from "@/components/admin/admin-ui";
 import { setOrderStatus, setPaymentStatus } from "@/app/admin/_actions/orders";
+import { resendNotification } from "@/app/admin/_actions/notifications";
 import { NextStepButton } from "../../order-buttons";
 import { ProofReview } from "../../payments/proof-review";
 import { formatPrice } from "@/lib/format";
@@ -12,6 +13,13 @@ import { PAYMENT_LABEL, formatDate, type OrderStatus } from "@/lib/orders";
 import { isUuid } from "@/lib/admin-types";
 
 export const metadata: Metadata = { title: "Order" };
+
+const NOTIFY_LABEL: Record<string, string> = {
+  pending: "Waiting to be sent",
+  sending: "Sending…",
+  sent: "Sent",
+  failed: "Failed",
+};
 
 const waLink = (phone: string | null | undefined, msg: string) => {
   const d = (phone ?? "").replace(/\D/g, "").replace(/^0/, "92");
@@ -30,6 +38,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
          order_items(id, product_name, quantity, unit_label, unit_name, unit_price, line_total, amount_requested,
            order_item_costs(supplier_unit_price, supplier_line_total)),
          payment_proofs(id, method, amount, transaction_ref, screenshot_path, status, admin_note, created_at),
+         order_notifications(id, recipient, status, attempts, last_error, sent_at),
          order_status_events(id, status, note, created_at)`,
       )
       .eq("id", id)
@@ -212,6 +221,36 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
           </p>
         </Card>
       </div>
+
+      {(o.order_notifications ?? []).length > 0 && (
+        <Card title="Automatic WhatsApp alerts">
+          <ul className="flex flex-col gap-3">
+            {(["admin", "shop"] as const).map((r) => {
+              const n = (o.order_notifications ?? []).find((x) => x.recipient === r);
+              if (!n) return null;
+              return (
+                <li key={r} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <div>
+                    <p className="font-semibold">
+                      {r === "admin" ? "To you (customer details and selling prices)" : "To the shop (supplier prices only)"}
+                    </p>
+                    <p className={n.status === "failed" ? "text-destructive" : "text-muted-foreground"}>
+                      {NOTIFY_LABEL[n.status] ?? n.status}
+                      {n.status === "sent" && n.sent_at ? ` · ${formatDate(n.sent_at)}` : ""}
+                      {n.attempts > 1 ? ` · ${n.attempts} tries` : ""}
+                      {n.last_error ? ` · ${n.last_error}` : ""}
+                    </p>
+                  </div>
+                  <ActionForm action={resendNotification} submit={n.status === "sent" ? "Send again" : "Send now"} inline>
+                    <input type="hidden" name="order_id" value={o.id} />
+                    <input type="hidden" name="recipient" value={r} />
+                  </ActionForm>
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
 
       <Card title="History">
         <ol className="flex flex-col gap-2 text-sm">
