@@ -42,7 +42,7 @@ export async function retryFailedNotifications(): Promise<ActionState> {
   const { data } = await supabase
     .from("order_notifications")
     .select("order_id, recipient")
-    .in("status", ["failed", "pending"])
+    .in("status", ["failed", "pending", "sending"]) // "sending" is only taken again once it is over 2 minutes old
     .order("created_at", { ascending: false })
     .limit(20);
   if (!data || data.length === 0) return { ok: "Nothing to retry." };
