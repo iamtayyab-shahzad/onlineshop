@@ -21,6 +21,22 @@ export async function saveNotificationSettings(_p: ActionState, fd: FormData): P
   return { ok: "Saved." };
 }
 
+/** Turns the WhatsApp login code on or off. The database refuses to turn it on until the number and server secret exist. */
+export async function setLoginCodeCheck(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const { supabase } = await adminDb();
+  const on = fd.get("on") === "true";
+  const { error } = await supabase.rpc("admin_set_login_check", { p_on: on });
+  if (error) {
+    if (error.message.includes("need_number")) return { error: "Save your admin WhatsApp number above first." };
+    if (error.message.includes("need_secret")) {
+      return { error: "The WhatsApp alert secret is not set up yet, so codes cannot be sent. Order alerts must work first." };
+    }
+    return { error: "Could not change this. Please sign in again and retry." };
+  }
+  refresh();
+  return { ok: on ? "Login code is ON. Next time you sign in, a code comes on WhatsApp." : "Login code is OFF." };
+}
+
 const word = (o: NotifyOutcome) =>
   o === "sent" ? "sent" : o === "failed" ? "failed again" : o === "skipped" ? "already being sent" : "could not start";
 

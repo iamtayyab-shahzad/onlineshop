@@ -4,7 +4,7 @@ import { ActionForm } from "@/components/admin/action-form";
 import { AdminTitle, Card, Check, Input, inputCls } from "@/components/admin/admin-ui";
 import { QrField } from "@/components/admin/qr-field";
 import { savePaymentAccounts, saveShop, saveStoreSettings } from "@/app/admin/_actions/settings";
-import { retryFailedNotifications, saveNotificationSettings } from "@/app/admin/_actions/notifications";
+import { retryFailedNotifications, saveNotificationSettings, setLoginCodeCheck } from "@/app/admin/_actions/notifications";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -13,7 +13,11 @@ export default async function SettingsPage() {
   const [{ data: s }, { data: shop }, { data: alerts }, { count: failedAlerts }] = await Promise.all([
     supabase.from("store_settings").select("*").eq("id", true).single(),
     supabase.from("shops").select("id, name, whatsapp_phone, address").eq("is_default", true).maybeSingle(),
-    supabase.from("notification_settings").select("alerts_enabled, admin_whatsapp").eq("id", true).maybeSingle(),
+    supabase
+      .from("notification_settings")
+      .select("alerts_enabled, admin_whatsapp, require_login_code")
+      .eq("id", true)
+      .maybeSingle(),
     supabase.from("order_notifications").select("id", { count: "exact", head: true }).eq("status", "failed"),
   ]);
   if (!s) return <p>Store settings row is missing.</p>;
@@ -117,6 +121,33 @@ export default async function SettingsPage() {
           </p>
           <ActionForm action={retryFailedNotifications} submit="Retry failed messages" inline />
         </div>
+      </Card>
+
+      <Card title="Admin login code (WhatsApp)">
+        <p className="mb-3 text-sm text-muted-foreground">
+          When this is ON, signing in to the admin needs the password <b>and</b> a 6-digit code that is sent to your admin
+          WhatsApp number above. Even someone who knows the password cannot get in without your phone. Customers are not
+          affected.
+        </p>
+        <p className="mb-3 text-sm font-semibold">
+          Right now: {alerts?.require_login_code ? <span className="text-primary">ON</span> : <span>OFF</span>}
+        </p>
+        <ActionForm
+          action={setLoginCodeCheck}
+          submit={alerts?.require_login_code ? "Turn OFF the login code" : "Turn ON the login code"}
+          confirm={
+            alerts?.require_login_code
+              ? "Turn off the WhatsApp login code?"
+              : "Turn on the WhatsApp login code? Make sure your admin WhatsApp number is correct and order alerts reach you, or you will not be able to sign in."
+          }
+          danger={!!alerts?.require_login_code}
+        >
+          <input type="hidden" name="on" value={alerts?.require_login_code ? "false" : "true"} />
+        </ActionForm>
+        <p className="mt-3 text-xs text-muted-foreground">
+          If WhatsApp ever stops working and you cannot sign in, run this in the Supabase SQL Editor to switch the code off:{" "}
+          <code className="rounded bg-muted px-1">update public.notification_settings set require_login_code = false;</code>
+        </p>
       </Card>
     </div>
   );

@@ -2,14 +2,23 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { adminDb } from "@/lib/auth";
 import { ActionForm, CopyButton } from "@/components/admin/action-form";
-import { ADMIN_STATUS_LABEL, AdminTitle, Card, PayBadge, Select, StatusBadge, inputCls } from "@/components/admin/admin-ui";
+import {
+  ADMIN_STATUS_LABEL,
+  AdminTitle,
+  Card,
+  LinkButton,
+  PayBadge,
+  Select,
+  StatusBadge,
+  inputCls,
+} from "@/components/admin/admin-ui";
 import { setOrderStatus, setPaymentStatus } from "@/app/admin/_actions/orders";
 import { resendNotification } from "@/app/admin/_actions/notifications";
-import { NextStepButton } from "../../order-buttons";
+import { OrderActionButtons } from "../../order-buttons";
 import { ProofReview } from "../../payments/proof-review";
 import { formatPrice } from "@/lib/format";
 import { formatQty } from "@/lib/quantity";
-import { PAYMENT_LABEL, formatDate, type OrderStatus } from "@/lib/orders";
+import { ADMIN_STATUSES, PAYMENT_LABEL, formatDate, isOpenStatus } from "@/lib/orders";
 import { isUuid } from "@/lib/admin-types";
 
 export const metadata: Metadata = { title: "Order" };
@@ -50,7 +59,9 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
   const items = o.order_items ?? [];
   const cost = items.reduce((s, i) => s + Number(i.order_item_costs?.supplier_line_total ?? 0), 0);
   const missingCost = items.some((i) => !i.order_item_costs);
-  const profit = Number(o.subtotal) - cost;
+  const discount = Number(o.discount);
+  const profit = Number(o.subtotal) - discount - cost;
+  const open = isOpenStatus(o.status);
   const qty = (i: (typeof items)[number]) => formatQty(Number(i.quantity), i.unit_name ?? i.unit_label);
 
   // Packing list for the shop: names and quantities only, never prices.
@@ -72,6 +83,9 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
       <AdminTitle title={`Order #${o.order_number}`} backHref="/admin/orders">
         <StatusBadge status={o.status} />
         <PayBadge status={o.payment_status} />
+        <LinkButton href={`/admin/orders/${o.id}/edit`} variant="outline">
+          Edit order
+        </LinkButton>
       </AdminTitle>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -112,6 +126,12 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
             <dd className="text-right tabular-nums">{formatPrice(o.subtotal)}</dd>
             <dt>Delivery</dt>
             <dd className="text-right tabular-nums">{formatPrice(o.delivery_fee)}</dd>
+            {discount > 0 && (
+              <>
+                <dt>Discount</dt>
+                <dd className="text-right tabular-nums">− {formatPrice(discount)}</dd>
+              </>
+            )}
             <dt className="font-bold">Customer pays</dt>
             <dd className="text-right font-bold tabular-nums">{formatPrice(o.total)}</dd>
             <dt className="text-muted-foreground">Supplier cost</dt>
@@ -156,14 +176,14 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
 
           <Card title="Status">
             <div className="flex flex-col gap-3">
-              <NextStepButton id={o.id} status={o.status} />
+              {open && <OrderActionButtons id={o.id} number={o.order_number} />}
               <ActionForm action={setOrderStatus} submit="Save status">
                 <input type="hidden" name="order_id" value={o.id} />
                 <Select
-                  label="Change to"
+                  label={open ? "Change to" : "Move back to"}
                   name="status"
-                  defaultValue={o.status}
-                  options={(Object.keys(ADMIN_STATUS_LABEL) as OrderStatus[]).map((s) => ({
+                  defaultValue={open ? "placed" : o.status}
+                  options={ADMIN_STATUSES.map((s) => ({
                     value: s,
                     label: ADMIN_STATUS_LABEL[s],
                   }))}
@@ -193,9 +213,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
               <p className="text-sm text-muted-foreground">Add the shop WhatsApp number in Settings to open it directly.</p>
             )}
           </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Prices are not included. After sending, mark the order &quot;Sent to shop&quot;.
-          </p>
+          <p className="mt-2 text-xs text-muted-foreground">Prices are not included.</p>
         </Card>
 
         <Card title={`Payment · ${PAYMENT_LABEL[o.payment_method]}`}>

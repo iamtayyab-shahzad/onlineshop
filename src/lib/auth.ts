@@ -70,11 +70,28 @@ export function safeNextPath(value: unknown, fallback = "/account"): string {
  * Security checks it again inside Postgres.
  */
 export async function requireAdmin(): Promise<CurrentUser> {
-  const user = await getCurrentUser();
+  // The WhatsApp-code check runs next to the profile read, so it adds no waiting time.
+  const [user, gate] = await Promise.all([getCurrentUser(), adminGate()]);
   if (!user) redirect("/admin/login");
   if (!user.isAdmin) redirect("/admin/login?denied=1");
+  if (gate?.required && !gate.verified) redirect("/admin/login");
   return user;
 }
+
+export type AdminGate = { admin: boolean; required: boolean; verified: boolean };
+
+/**
+ * Whether the WhatsApp login code is switched on and this session has entered it. Deduplicated per request.
+ * The database enforces it too (private.is_admin() is false for an unverified session), so if this call
+ * ever fails the admin screens simply find no data; it never opens anything up.
+ */
+export const adminGate = cache(async (): Promise<AdminGate | null> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_gate_status");
+  if (error || !data || typeof data !== "object" || Array.isArray(data)) return null;
+  const g = data as Record<string, unknown>;
+  return { admin: g.admin === true, required: g.required === true, verified: g.verified === true };
+});
 
 /** Supabase client for admin pages and actions: checks the admin role first, every time. */
 export async function adminDb() {

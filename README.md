@@ -44,6 +44,7 @@ All schema changes are kept as SQL files in [`supabase/migrations`](supabase/mig
 6. `20261120090000_monthly_list_decimals.sql` – Monthly List quantities can be decimals, and "Rs X worth" lines
 7. `20261120100000_table_grants.sql` – explicit table access for new Supabase projects (Row Level Security still decides which rows)
 8. `20261121090000_whatsapp_notifications.sql` – automatic WhatsApp order alerts: notification queue + status, admin-only settings, and the secret-protected functions that build each message
+9. `20261122090000_admin_order_tools.sql` – three order stages (New / Delivered / Cancelled), order discount, admin edit-order and create-order-from-voice functions, sales report net of discount, and the optional WhatsApp admin login code
 
 **Required Supabase setting (Stage 2):** in Authentication → Sign In / Providers → Email, turn **"Confirm email" OFF**.
 Customers sign in with their mobile number and password, and there is no email to confirm.
@@ -64,6 +65,14 @@ When an order is saved, the server sends two WhatsApp messages through your WAHA
 - **Shop:** product names, quantities, supplier prices and supplier total only.
 
 An order never depends on WhatsApp. Each message has a row in `order_notifications` (pending / sending / sent / failed, tries, last error), so nothing is sent twice and failures can be resent from **Admin → order page** or **Settings → Retry failed messages**. Admin number and on/off: **Settings → Order alerts**. Shop number: **Settings → Supplier shop**.
+
+## Admin order tools and login code
+
+- **Three stages only:** New → Delivered, or Cancelled. Older in-between stages were folded into New by migration 9. **In progress** (admin menu) lists every New order with one-tap *Complete* / *Cancel*, and the total still to deliver.
+- **Edit any order** (orders list or order page → Edit): change quantity or price, remove items, add shop products or one-off items, delivery fee and an extra discount. Totals and reports update.
+- **Orders search:** by customer name, phone or order number, with live suggestions, plus a single date or a date range (Pakistan time).
+- **Voice orders → Create order:** listen, pick the items, and the order is made with the customer's saved name and address, marked done, and the usual WhatsApp alerts go out.
+- **Admin login code:** **Settings → Admin login code** turns on a 6-digit WhatsApp code after the password. It needs the admin WhatsApp number and the alert secret (`NOTIFY_SECRET`) to work, and the database enforces it for that login session. If WhatsApp is ever down and you are locked out, run this in the Supabase SQL Editor: `update public.notification_settings set require_login_code = false;`
 
 Setup (once):
 

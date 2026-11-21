@@ -2,18 +2,16 @@ import type { Metadata } from "next";
 import { adminDb } from "@/lib/auth";
 import { Card, LinkButton, Stat, pkDate } from "@/components/admin/admin-ui";
 import { formatPrice } from "@/lib/format";
+import { OPEN_STATUSES } from "@/lib/orders";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const { supabase } = await adminDb();
   const today = pkDate();
-  const [newOrders, active, pay, voice, report] = await Promise.all([
-    supabase.from("orders").select("id", { count: "exact", head: true }).eq("status", "placed"),
-    supabase
-      .from("orders")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["confirmed", "sent_to_shop", "packed", "out_for_delivery"]),
+  const [open, pay, voice, report] = await Promise.all([
+    // Every order that is not delivered or cancelled yet: its amount is still "to deliver".
+    supabase.from("orders").select("total").in("status", [...OPEN_STATUSES]),
     supabase.from("payment_proofs").select("id", { count: "exact", head: true }).eq("status", "submitted"),
     supabase.from("voice_orders").select("id", { count: "exact", head: true }).eq("status", "new"),
     supabase.rpc("admin_sales_report", { p_from: today, p_to: today }),
@@ -22,12 +20,19 @@ export default async function DashboardPage() {
     (a, r) => ({ orders: a.orders + Number(r.orders), sales: a.sales + Number(r.sales), profit: a.profit + Number(r.profit) }),
     { orders: 0, sales: 0, profit: 0 },
   );
+  const openCount = open.data?.length ?? 0;
+  const openAmount = (open.data ?? []).reduce((s, r) => s + Number(r.total), 0);
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-bold">Dashboard</h1>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="New orders" value={newOrders.count ?? 0} href="/admin/orders?status=placed" tone={newOrders.count ? "warn" : undefined} />
-        <Stat label="In progress" value={active.count ?? 0} href="/admin/deliveries" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <Stat
+          label="In progress"
+          value={openCount}
+          sub={openCount ? `${formatPrice(openAmount)} to deliver` : undefined}
+          href="/admin/deliveries"
+          tone={openCount ? "warn" : undefined}
+        />
         <Stat label="Payments to check" value={pay.count ?? 0} href="/admin/payments" tone={pay.count ? "warn" : undefined} />
         <Stat label="New voice orders" value={voice.count ?? 0} href="/admin/voice" tone={voice.count ? "warn" : undefined} />
       </div>

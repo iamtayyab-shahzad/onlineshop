@@ -79,6 +79,14 @@ export default async function VoicePage({ searchParams }: { searchParams: Promis
             ) : (
               <p className="my-3 text-sm text-destructive">Audio file not found.</p>
             )}
+            {v.status === "new" && !v.orders && (
+              <Link
+                href={`/admin/voice/${v.id}/order`}
+                className="mb-3 inline-flex h-11 items-center rounded-lg bg-primary px-5 text-base font-semibold text-primary-foreground"
+              >
+                Create order
+              </Link>
+            )}
             {v.orders && (
               <p className="mb-2 text-sm">
                 Linked to{" "}

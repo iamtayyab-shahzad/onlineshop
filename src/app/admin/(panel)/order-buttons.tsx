@@ -1,16 +1,24 @@
 import { ActionForm } from "@/components/admin/action-form";
-import { ADMIN_STATUS_LABEL, NEXT_STATUS } from "@/components/admin/admin-ui";
 import { setOrderStatus } from "@/app/admin/_actions/orders";
-import type { OrderStatus } from "@/lib/orders";
 
-/** One-tap "move to next step" button for an order. */
-export function NextStepButton({ id, status }: { id: string; status: OrderStatus }) {
-  const next = NEXT_STATUS[status];
-  if (!next) return null;
+/** One-tap Complete (delivered) and Cancel buttons for an open order. */
+export function OrderActionButtons({ id, number }: { id: string; number: number }) {
   return (
-    <ActionForm action={setOrderStatus} submit={`Mark ${ADMIN_STATUS_LABEL[next]}`} inline>
-      <input type="hidden" name="order_id" value={id} />
-      <input type="hidden" name="status" value={next} />
-    </ActionForm>
+    <div className="flex flex-wrap items-start gap-2">
+      <ActionForm action={setOrderStatus} submit="Complete ✓" inline>
+        <input type="hidden" name="order_id" value={id} />
+        <input type="hidden" name="status" value="delivered" />
+      </ActionForm>
+      <ActionForm
+        action={setOrderStatus}
+        submit="Cancel"
+        danger
+        inline
+        confirm={`Cancel order #${number}? Its amount will be taken off the totals.`}
+      >
+        <input type="hidden" name="order_id" value={id} />
+        <input type="hidden" name="status" value="cancelled" />
+      </ActionForm>
+    </div>
   );
 }

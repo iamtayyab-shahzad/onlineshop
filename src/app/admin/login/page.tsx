@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { BlockSkeleton } from "@/components/skeletons";
-import { getCurrentUser } from "@/lib/auth";
+import { adminGate, getCurrentUser } from "@/lib/auth";
+import { CodeStep } from "./code-step";
 import { signOut } from "@/app/auth-actions";
 import { AuthForm } from "@/app/(shop)/login/auth-form";
 
@@ -21,8 +22,11 @@ export default function AdminLoginPage() {
 }
 
 async function Login() {
-  const user = await getCurrentUser();
-  if (user?.isAdmin) redirect("/admin/dashboard");
+  const [user, gate] = await Promise.all([getCurrentUser(), adminGate()]);
+  if (user?.isAdmin) {
+    if (gate?.required && !gate.verified) return <CodeStep />;
+    redirect("/admin/dashboard");
+  }
   if (user) {
     return (
       <div className="flex flex-col gap-3 rounded-xl border bg-card p-4">

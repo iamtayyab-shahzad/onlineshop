@@ -144,6 +144,7 @@ export type Database = {
           admin_whatsapp: string | null
           alerts_enabled: boolean
           id: boolean
+          require_login_code: boolean
           secret_hash: string | null
           updated_at: string
         }
@@ -151,6 +152,7 @@ export type Database = {
           admin_whatsapp?: string | null
           alerts_enabled?: boolean
           id?: boolean
+          require_login_code?: boolean
           secret_hash?: string | null
           updated_at?: string
         }
@@ -158,6 +160,7 @@ export type Database = {
           admin_whatsapp?: string | null
           alerts_enabled?: boolean
           id?: boolean
+          require_login_code?: boolean
           secret_hash?: string | null
           updated_at?: string
         }
@@ -346,6 +349,7 @@ export type Database = {
           delivery_landmark: string | null
           delivery_name: string
           delivery_phone: string
+          discount: number
           id: string
           order_number: number
           payment_method: Database["public"]["Enums"]["payment_method"]
@@ -367,6 +371,7 @@ export type Database = {
           delivery_landmark?: string | null
           delivery_name: string
           delivery_phone: string
+          discount?: number
           id?: string
           order_number?: never
           payment_method: Database["public"]["Enums"]["payment_method"]
@@ -388,6 +393,7 @@ export type Database = {
           delivery_landmark?: string | null
           delivery_name?: string
           delivery_phone?: string
+          discount?: number
           id?: string
           order_number?: never
           payment_method?: Database["public"]["Enums"]["payment_method"]
@@ -875,6 +881,44 @@ export type Database = {
           p_status: Database["public"]["Enums"]["order_status"]
         }
         Returns: undefined
+      }
+      admin_create_order: {
+        Args: {
+          p_address_id?: string | null
+          p_delivery_fee?: number | null
+          p_discount?: number
+          p_items: Json
+          p_note?: string | null
+          p_payment_method?: Database["public"]["Enums"]["payment_method"]
+          p_voice_order_id: string
+        }
+        Returns: Json
+      }
+      admin_gate_status: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      admin_set_login_check: {
+        Args: { p_on: boolean }
+        Returns: undefined
+      }
+      admin_store_login_code: {
+        Args: { p_code: string; p_secret: string }
+        Returns: Json
+      }
+      admin_update_order: {
+        Args: {
+          p_delivery_fee?: number | null
+          p_discount?: number
+          p_items: Json
+          p_note?: string | null
+          p_order_id: string
+        }
+        Returns: Json
+      }
+      admin_verify_login_code: {
+        Args: { p_code: string }
+        Returns: string
       }
       claim_order_notification: {
         Args: { p_force?: boolean; p_order_id: string; p_recipient: string; p_secret: string }

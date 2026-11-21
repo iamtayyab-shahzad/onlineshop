@@ -3,17 +3,10 @@
 import { refresh } from "next/cache";
 import { adminDb } from "@/lib/auth";
 import { isUuid, text, type ActionState } from "@/lib/admin-types";
-import type { OrderStatus, PaymentStatus } from "@/lib/orders";
+import { cleanSearch, orderSearchFilter } from "@/lib/order-search";
+import { ADMIN_STATUSES, type OrderStatus, type PaymentStatus } from "@/lib/orders";
 
-const STATUSES: OrderStatus[] = [
-  "placed",
-  "confirmed",
-  "sent_to_shop",
-  "packed",
-  "out_for_delivery",
-  "delivered",
-  "cancelled",
-];
+const STATUSES = ADMIN_STATUSES;
 const PAY: PaymentStatus[] = ["unpaid", "pending_verification", "paid", "refunded"];
 
 export async function setOrderStatus(_p: ActionState, fd: FormData): Promise<ActionState> {
@@ -29,6 +22,31 @@ export async function setOrderStatus(_p: ActionState, fd: FormData): Promise<Act
   if (error) return { error: "Could not change the status. Please try again." };
   refresh();
   return { ok: "Status updated." };
+}
+
+export type OrderSuggestion = {
+  id: string;
+  order_number: number;
+  delivery_name: string;
+  delivery_phone: string;
+  total: number;
+  status: OrderStatus;
+  created_at: string;
+};
+
+/** Live suggestions under the orders search box: the latest orders matching the name, phone or order number. */
+export async function orderSuggestions(q: string): Promise<OrderSuggestion[]> {
+  const { supabase } = await adminDb();
+  if (typeof q !== "string" || cleanSearch(q).length < 2) return [];
+  const filter = orderSearchFilter(q);
+  if (!filter) return [];
+  const { data } = await supabase
+    .from("orders")
+    .select("id, order_number, delivery_name, delivery_phone, total, status, created_at")
+    .or(filter)
+    .order("created_at", { ascending: false })
+    .limit(8);
+  return data ?? [];
 }
 
 export async function setPaymentStatus(_p: ActionState, fd: FormData): Promise<ActionState> {

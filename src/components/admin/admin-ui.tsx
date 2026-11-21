@@ -37,11 +37,24 @@ export function Card({ title, className, children }: { title?: string; className
   );
 }
 
-export function Stat({ label, value, href, tone }: { label: string; value: string | number; href?: string; tone?: "warn" }) {
+export function Stat({
+  label,
+  value,
+  href,
+  tone,
+  sub,
+}: {
+  label: string;
+  value: string | number;
+  href?: string;
+  tone?: "warn";
+  sub?: string;
+}) {
   const body = (
     <>
       <span className="text-sm text-muted-foreground">{label}</span>
       <span className={cn("text-2xl font-bold tabular-nums", tone === "warn" && "text-amber-700")}>{value}</span>
+      {sub && <span className="text-sm font-medium text-muted-foreground tabular-nums">{sub}</span>}
     </>
   );
   const cls = "flex flex-col gap-1 rounded-xl border bg-card p-4";
@@ -76,22 +89,24 @@ export function LinkButton({
   );
 }
 
+// Only three stages are used now. The older in-between values (kept in the database enum) show as "New".
+const NEW_TONE = "bg-amber-100 text-amber-900";
 const STATUS_TONE: Record<OrderStatus, string> = {
-  placed: "bg-amber-100 text-amber-900",
-  confirmed: "bg-sky-100 text-sky-900",
-  sent_to_shop: "bg-indigo-100 text-indigo-900",
-  packed: "bg-violet-100 text-violet-900",
-  out_for_delivery: "bg-blue-100 text-blue-900",
+  placed: NEW_TONE,
+  confirmed: NEW_TONE,
+  sent_to_shop: NEW_TONE,
+  packed: NEW_TONE,
+  out_for_delivery: NEW_TONE,
   delivered: "bg-emerald-100 text-emerald-900",
   cancelled: "bg-red-100 text-red-900",
 };
 
 export const ADMIN_STATUS_LABEL: Record<OrderStatus, string> = {
   placed: "New",
-  confirmed: "Confirmed",
-  sent_to_shop: "Sent to shop",
-  packed: "Packed",
-  out_for_delivery: "Out for delivery",
+  confirmed: "New",
+  sent_to_shop: "New",
+  packed: "New",
+  out_for_delivery: "New",
   delivered: "Delivered",
   cancelled: "Cancelled",
 };
@@ -199,15 +214,6 @@ export function Check({ label, ...props }: { label: string } & React.InputHTMLAt
     </label>
   );
 }
-
-/** The normal next step for an order, used by the one-tap buttons. */
-export const NEXT_STATUS: Partial<Record<OrderStatus, OrderStatus>> = {
-  placed: "confirmed",
-  confirmed: "sent_to_shop",
-  sent_to_shop: "packed",
-  packed: "out_for_delivery",
-  out_for_delivery: "delivered",
-};
 
 /** Today's date in Pakistan as YYYY-MM-DD. */
 export function pkDate(offsetDays = 0): string {

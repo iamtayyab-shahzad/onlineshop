@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 const LINKS = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/orders", label: "Orders", icon: Package },
-  { href: "/admin/deliveries", label: "Deliveries", icon: Truck },
+  { href: "/admin/deliveries", label: "In progress", icon: Truck },
   { href: "/admin/payments", label: "Payments", icon: CreditCard },
   { href: "/admin/voice", label: "Voice orders", icon: Mic },
   { href: "/admin/products", label: "Products", icon: Boxes },

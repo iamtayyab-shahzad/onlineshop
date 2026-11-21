@@ -87,7 +87,9 @@ Supabase
 | `voice_orders` | audio path, duration, address, note, status, linked order | owner, admin |
 
 The enums are:
-- order status: `placed → confirmed → sent_to_shop → packed → out_for_delivery → delivered`, or `cancelled`
+- order status: the app uses only `placed` (shown as "New"), `delivered` and `cancelled`. The older in-between values (`confirmed`, `sent_to_shop`, `packed`, `out_for_delivery`) still exist in the enum, were folded into `placed` by migration `20261122090000`, and are shown as New if one ever appears. `admin_set_order_status` accepts only the three.
+- orders also have `discount` (admin-given); `total = subtotal + delivery_fee − discount`. Admins change items through `admin_update_order` / `admin_create_order` (security definer, admin-checked); reports count non-cancelled orders net of discount.
+- admin login code (optional): `notification_settings.require_login_code`. When on, `private.is_admin()` is true only for a login session (JWT `session_id`) listed in `private.admin_verified_sessions`, which `admin_verify_login_code` fills after the right WhatsApp code. Codes are stored hashed, expire in 10 minutes, allow 5 tries, and sending is rate-limited; the code can only be stored by a server that knows `NOTIFY_SECRET`.
 - payment method: `cod | jazzcash | bank_transfer`
 - payment status: `unpaid | pending_verification | paid | refunded`
 

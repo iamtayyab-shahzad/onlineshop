@@ -64,7 +64,7 @@ export async function getMyOrder(userId: string, id: string) {
     .select(
       `id, order_number, status, payment_method, payment_status, created_at,
        delivery_name, delivery_phone, delivery_area, delivery_address, delivery_landmark,
-       customer_note, subtotal, delivery_fee, total,
+       customer_note, subtotal, delivery_fee, discount, total,
        order_items(id, product_id, product_name, unit_label, unit_name, unit_price, quantity, line_total, amount_requested),
        order_status_events(status, created_at),
        payment_proofs(id, status, transaction_ref, created_at)`,

@@ -36,7 +36,8 @@ async function OrderDetail({ params }: { params: PageProps<"/account/orders/[id]
 
   const reached = new Map(order.order_status_events.map((e) => [e.status, e.created_at]));
   const cancelled = order.status === "cancelled";
-  const currentStep = STATUS_STEPS.indexOf(order.status as (typeof STATUS_STEPS)[number]);
+  // Two visible steps: received -> delivered. Older in-between statuses count as "received".
+  const currentStep = order.status === "delivered" ? STATUS_STEPS.length - 1 : 0;
   const needsPayment = order.payment_method !== "cod" && order.payment_status === "unpaid" && !cancelled;
   const pay = needsPayment ? await getPaymentDetails() : null;
   const sentProof = order.payment_proofs.some((p) => p.status === "submitted");
@@ -102,6 +103,12 @@ async function OrderDetail({ params }: { params: PageProps<"/account/orders/[id]
             <dt>Delivery</dt>
             <dd className="tabular-nums">{formatPrice(order.delivery_fee)}</dd>
           </div>
+          {Number(order.discount) > 0 && (
+            <div className="flex justify-between">
+              <dt>Discount</dt>
+              <dd className="tabular-nums">− {formatPrice(order.discount)}</dd>
+            </div>
+          )}
           <div className="flex justify-between text-lg font-bold">
             <dt>Total</dt>
             <dd className="tabular-nums">{formatPrice(order.total)}</dd>
