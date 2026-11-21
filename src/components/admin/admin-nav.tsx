@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BarChart3,
@@ -8,6 +8,7 @@ import {
   CreditCard,
   Images,
   LayoutDashboard,
+  Loader2,
   Mic,
   Package,
   Ruler,
@@ -33,6 +34,12 @@ const LINKS = [
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ] as const;
 
+/** Shows a spinner in place of the icon the moment a menu item is tapped, until the page opens. */
+function NavIcon({ icon: Icon }: { icon: typeof Package }) {
+  const { pending } = useLinkStatus();
+  return pending ? <Loader2 className="size-4 animate-spin" /> : <Icon className="size-4" />;
+}
+
 /** Sidebar on desktop, a sideways-scrolling tab bar on phones. */
 export function AdminNav() {
   const path = usePathname();
@@ -50,7 +57,7 @@ export function AdminNav() {
               active ? "bg-primary text-primary-foreground" : "hover:bg-muted",
             )}
           >
-            <Icon className="size-4" />
+            <NavIcon icon={Icon} />
             {label}
           </Link>
         );
