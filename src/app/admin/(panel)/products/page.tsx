@@ -13,7 +13,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   const { q, cat } = await searchParams;
   let query = supabase
     .from("products")
-    .select("id, name, slug, image_url, selling_price, unit_label, is_active, in_stock, purchase_method, category_id, product_costs(supplier_price)")
+    .select("id, name, slug, image_url, selling_price, unit_label, is_active, in_stock, purchase_method, category_id, variant_of, product_costs(supplier_price)")
     .order("sort_order")
     .order("name")
     .limit(300);
@@ -25,6 +25,8 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
     supabase.from("categories").select("id, name").order("sort_order"),
   ]);
   const catName = new Map((cats ?? []).map((c) => [c.id, c.name]));
+  const sizeCount = new Map<string, number>();
+  for (const p of products ?? []) if (p.variant_of) sizeCount.set(p.variant_of, (sizeCount.get(p.variant_of) ?? 0) + 1);
 
   return (
     <div>
@@ -62,10 +64,12 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                 <td className="px-3 py-2">
                   <Link href={`/admin/products/${p.id}`} className="font-semibold text-primary">
                     {p.name}
+                    {p.variant_of && <span className="font-normal text-foreground"> ({p.unit_label})</span>}
                   </Link>
                   <div className="text-xs text-muted-foreground">
                     {catName.get(p.category_id)} · per {p.unit_label}
                     {p.purchase_method !== "quantity" ? " · by amount" : ""}
+                    {p.variant_of ? " · a size" : sizeCount.get(p.id) ? ` · ${sizeCount.get(p.id)! + 1} sizes` : ""}
                     {!p.is_active ? " · hidden" : ""}
                   </div>
                 </td>

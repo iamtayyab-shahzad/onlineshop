@@ -60,13 +60,22 @@ export async function saveProduct(_p: ActionState, fd: FormData): Promise<Action
     return { error: `“${unit.name}” is counted in whole numbers. Use whole min / max / step, or pick another unit.` };
   }
 
+  // A size of another product ("Size of" on the form). Empty = a normal product.
+  const rawParent = fd.get("variant_of");
+  const variantOf = typeof rawParent === "string" && rawParent !== "" ? rawParent : null;
+  if (variantOf && !isUuid(variantOf)) return { error: "Please choose the main product again." };
+  if (variantOf && variantOf === id) return { error: "A product cannot be a size of itself." };
+  const unitLabel = text(fd, "unit_label", 40) ?? unit.name;
+  if (variantOf && !text(fd, "unit_label", 40)) return { error: "Please enter the size name, e.g. 500 g." };
+
   const row: ProductInsert = {
     name,
     name_urdu: text(fd, "name_urdu", 120),
-    slug: slugify(text(fd, "slug", 60) ?? name) || `item-${Date.now()}`,
+    slug: slugify(text(fd, "slug", 60) ?? (variantOf ? `${name} ${unitLabel}` : name)) || `item-${Date.now()}`,
+    variant_of: variantOf,
     category_id,
     unit_id,
-    unit_label: text(fd, "unit_label", 40) ?? unit.name,
+    unit_label: unitLabel,
     description: text(fd, "description", 1000),
     selling_price: selling,
     purchase_method: method,
@@ -81,10 +90,22 @@ export async function saveProduct(_p: ActionState, fd: FormData): Promise<Action
     sort_order: Math.trunc(num(fd, "sort_order") ?? 0),
   };
 
+  // A new size starts with the main product’s photo (change it on the size’s page if needed).
+  if (variantOf && !isUuid(id)) {
+    const { data: parent } = await supabase.from("products").select("image_url").eq("id", variantOf).maybeSingle();
+    row.image_url = parent?.image_url ?? null;
+  }
+
   const res = isUuid(id)
     ? await supabase.from("products").update(row).eq("id", id).select("id").single()
     : await supabase.from("products").insert(row).select("id").single();
   if (res.error) {
+    if (res.error.message.includes("variant_of_variant")) {
+      return { error: "That product is itself a size. Choose the main product instead." };
+    }
+    if (res.error.message.includes("has_variants")) {
+      return { error: "This product already has sizes of its own, so it cannot become a size of another product." };
+    }
     if (res.error.code === UNIQUE) return { error: "Another product already uses this web name (slug). Change it." };
     if (res.error.code === CHECK) return { error: "Some values are not allowed. Check prices, min / max and amounts." };
     return { error: "Could not save the product. Please try again." };

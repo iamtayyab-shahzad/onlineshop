@@ -25,15 +25,17 @@ export default async function ImagesPage() {
       .is("product_id", null)
       .order("original_name")
       .limit(300),
-    supabase.from("products").select("id, name, slug").order("name"),
+    supabase.from("products").select("id, name, slug, unit_label, variant_of").order("name"),
     supabase.from("product_images").select("id", { count: "exact", head: true }).not("product_id", "is", null),
   ]);
   const bySlug = new Map<string, string>();
   for (const p of products ?? []) {
     bySlug.set(p.slug, p.id);
-    bySlug.set(slugify(p.name), p.id);
+    // Sizes share their main product’s name, so only the main product answers to the plain name.
+    if (!p.variant_of) bySlug.set(slugify(p.name), p.id);
   }
-  const nameOf = new Map((products ?? []).map((p) => [p.id, p.name]));
+  const shown = (products ?? []).map((p) => ({ ...p, name: p.variant_of ? `${p.name} (${p.unit_label})` : p.name }));
+  const nameOf = new Map(shown.map((p) => [p.id, p.name]));
   const matches = (unassigned ?? [])
     .map((img) => ({ img, productId: suggest(img.original_name, bySlug) }))
     .filter((m): m is { img: (typeof m)["img"]; productId: string } => !!m.productId);
@@ -87,7 +89,7 @@ export default async function ImagesPage() {
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {unassigned.map((img) => (
-            <ImageTile key={img.id} image={img} products={products ?? []} suggested={suggest(img.original_name, bySlug)} />
+            <ImageTile key={img.id} image={img} products={shown} suggested={suggest(img.original_name, bySlug)} />
           ))}
         </div>
       )}

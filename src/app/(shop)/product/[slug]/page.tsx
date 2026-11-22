@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { getAllProductSlugs, getProductBySlug } from "@/lib/catalog";
+import { getAllProductSlugs, getProductBySlug, getSizeGroup } from "@/lib/catalog";
 import { formatPrice } from "@/lib/format";
 import { AddToCartButton, AmountPicker } from "@/components/add-to-cart-button";
 import { SaveProductButton } from "@/components/save-to-monthly";
 import { toCartItem } from "@/lib/catalog-item";
 import { ProductImage } from "@/components/product-image";
+import { SizePicker } from "@/components/size-picker";
 import { PageTitle } from "@/components/page-title";
 import { BlockSkeleton } from "@/components/skeletons";
 import Link from "next/link";
@@ -33,6 +34,7 @@ async function ProductContent({ params }: { params: Promise<{ slug: string }> })
   const product = await getProductBySlug((await params).slug);
   if (!product) notFound();
   const category = product.category;
+  const sizes = await getSizeGroup(product);
 
   return (
     <article className="flex flex-col gap-4">
@@ -49,6 +51,7 @@ async function ProductContent({ params }: { params: Promise<{ slug: string }> })
           <p className="text-3xl font-bold">{formatPrice(product.selling_price)}</p>
         </div>
       </div>
+      <SizePicker sizes={sizes} currentId={product.id} />
       {product.description && <p className="text-lg leading-relaxed">{product.description}</p>}
       {product.purchase_method !== "amount" || !product.in_stock ? (
         <AddToCartButton item={toCartItem(product)} inStock={product.in_stock} size="lg" />

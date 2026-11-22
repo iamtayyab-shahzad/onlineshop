@@ -45,6 +45,7 @@ All schema changes are kept as SQL files in [`supabase/migrations`](supabase/mig
 7. `20261120100000_table_grants.sql` – explicit table access for new Supabase projects (Row Level Security still decides which rows)
 8. `20261121090000_whatsapp_notifications.sql` – automatic WhatsApp order alerts: notification queue + status, admin-only settings, and the secret-protected functions that build each message
 9. `20261122090000_admin_order_tools.sql` – three order stages (New / Delivered / Cancelled), order discount, admin edit-order and create-order-from-voice functions, sales report net of discount, and the optional WhatsApp admin login code
+10. `20261123090000_product_variants.sql` – product sizes: `products.variant_of` links a size (e.g. 500 g) to its main product (one level only)
 
 **Required Supabase setting (Stage 2):** in Authentication → Sign In / Providers → Email, turn **"Confirm email" OFF**.
 Customers sign in with their mobile number and password, and there is no email to confirm.
@@ -73,6 +74,15 @@ An order never depends on WhatsApp. Each message has a row in `order_notificatio
 - **Orders search:** by customer name, phone or order number, with live suggestions, plus a single date or a date range (Pakistan time).
 - **Voice orders → Create order:** listen, pick the items, and the order is made with the customer's saved name and address, marked done, and the usual WhatsApp alerts go out.
 - **Admin login code:** **Settings → Admin login code** turns on a 6-digit WhatsApp code after the password. It needs the admin WhatsApp number and the alert secret (`NOTIFY_SECRET`) to work, and the database enforces it for that login session. If WhatsApp is ever down and you are locked out, run this in the Supabase SQL Editor: `update public.notification_settings set require_login_code = false;`
+
+## Product sizes (e.g. Vital Tea 1 kg / 500 g / 250 g)
+
+One product can be sold in several sizes, each with its own price. Customers see only the main product in the shop; on its page they get a **Choose a size** box with every size and its price, and the one they tap is what goes in the cart.
+
+- **Add sizes:** Admin → Products → open the main product → **Sizes → Add a size**. The form starts with the main product's name, category, unit and photo; type the size name (e.g. `500 g`), the selling price and the supplier price. Repeat for each size. Give the main product a size name too (e.g. `1 kg`) in its *Price label*.
+- **Existing product → size:** open it and set **Size of** to the main product.
+- Every size is a normal product behind the scenes (own price, supplier price, stock, photo, buying rules), so the cart, orders, Monthly List, reports and WhatsApp messages need no changes. A size can be hidden or marked out of stock on its own.
+- One level only: a size cannot have sizes. Deleting a main product leaves its sizes in the shop as separate products.
 
 Setup (once):
 

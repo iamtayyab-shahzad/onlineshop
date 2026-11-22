@@ -576,6 +576,7 @@ export type Database = {
           unit_id: string
           unit_label: string
           updated_at: string
+          variant_of: string | null
         }
         Insert: {
           category_id: string
@@ -600,6 +601,7 @@ export type Database = {
           unit_id: string
           unit_label: string
           updated_at?: string
+          variant_of?: string | null
         }
         Update: {
           category_id?: string
@@ -624,6 +626,7 @@ export type Database = {
           unit_id?: string
           unit_label?: string
           updated_at?: string
+          variant_of?: string | null
         }
         Relationships: [
           {
@@ -631,6 +634,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_variant_of_fkey"
+            columns: ["variant_of"]
+            isOneToOne: false
+            referencedRelation: "products"
             referencedColumns: ["id"]
           },
           {

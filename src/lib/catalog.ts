@@ -37,9 +37,22 @@ export type Product = {
   min_amount: number | null;
   max_amount: number | null;
   in_stock: boolean;
+  variant_of: string | null;
   category: { slug: string; name: string; icon: string | null } | null;
   unit: { name: string; allow_decimal: boolean } | null;
 };
+
+/** One size of a main product (e.g. "500 g"), with its own price. */
+export type Size = {
+  id: string;
+  slug: string;
+  unit_label: string;
+  selling_price: number;
+  in_stock: boolean;
+};
+
+/** A main product together with its active sizes (empty when it has only one size). */
+export type ProductWithSizes = Product & { sizes: Size[] };
 
 export type StoreSettings = {
   store_name: string;
@@ -53,10 +66,39 @@ export type StoreSettings = {
 
 const CATEGORY_COLUMNS = "id, name, name_urdu, slug, icon";
 const PRODUCT_COLUMNS =
-  "id, slug, name, name_urdu, unit_label, description, image_url, selling_price, purchase_method, min_qty, max_qty, qty_step, min_amount, max_amount, in_stock, category:categories(slug, name, icon), unit:units(name, allow_decimal)";
+  "id, slug, name, name_urdu, unit_label, description, image_url, selling_price, purchase_method, min_qty, max_qty, qty_step, min_amount, max_amount, in_stock, variant_of, category:categories(slug, name, icon), unit:units(name, allow_decimal)";
+const SIZE_COLUMNS = "id, slug, unit_label, selling_price, in_stock, variant_of";
 
 function fail(context: string, message: string): never {
   throw new Error(`Could not load ${context}: ${message}`);
+}
+
+/** Smallest (cheapest) size first. */
+const bySizeOrder = (a: Size, b: Size) => a.selling_price - b.selling_price;
+
+/** Attach each product's active sizes (one extra query for the whole list). */
+async function withSizes(products: Product[]): Promise<ProductWithSizes[]> {
+  const ids = products.map((p) => p.id);
+  if (ids.length === 0) return [];
+  const { data, error } = await createPublicClient()
+    .from("products")
+    .select(SIZE_COLUMNS)
+    .in("variant_of", ids)
+    .eq("is_active", true);
+  if (error) fail("product sizes", error.message);
+  const byMain = new Map<string, Size[]>();
+  for (const s of data) {
+    if (!s.variant_of) continue;
+    const list = byMain.get(s.variant_of) ?? [];
+    list.push(s);
+    byMain.set(s.variant_of, list);
+  }
+  return products.map((p) => ({
+    ...p,
+    sizes: (byMain.get(p.id) ?? [])
+      .sort(bySizeOrder)
+      .map(({ id, slug, unit_label, selling_price, in_stock }) => ({ id, slug, unit_label, selling_price, in_stock })),
+  }));
 }
 
 export async function getCategories(): Promise<Category[]> {
@@ -86,7 +128,7 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
   return data;
 }
 
-export async function getProductsByCategory(categoryId: string): Promise<Product[]> {
+export async function getProductsByCategory(categoryId: string): Promise<ProductWithSizes[]> {
   "use cache";
   cacheLife("hours");
   cacheTag("catalog");
@@ -95,13 +137,14 @@ export async function getProductsByCategory(categoryId: string): Promise<Product
     .select(PRODUCT_COLUMNS)
     .eq("category_id", categoryId)
     .eq("is_active", true)
+    .is("variant_of", null)
     .order("sort_order")
     .order("name");
   if (error) fail("products", error.message);
-  return data;
+  return withSizes(data);
 }
 
-export async function getFeaturedProducts(): Promise<Product[]> {
+export async function getFeaturedProducts(): Promise<ProductWithSizes[]> {
   "use cache";
   cacheLife("hours");
   cacheTag("catalog");
@@ -110,10 +153,11 @@ export async function getFeaturedProducts(): Promise<Product[]> {
     .select(PRODUCT_COLUMNS)
     .eq("is_active", true)
     .eq("is_featured", true)
+    .is("variant_of", null)
     .order("sort_order")
     .limit(12);
   if (error) fail("popular products", error.message);
-  return data;
+  return withSizes(data);
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
@@ -128,6 +172,27 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     .maybeSingle();
   if (error) fail("product", error.message);
   return data;
+}
+
+/**
+ * Every size a customer can pick on a product page: the main product plus its active sizes,
+ * cheapest first. Works from either the main product or any of its sizes. Empty or one entry
+ * means the product has a single size, so no size picker is shown.
+ */
+export async function getSizeGroup(product: { id: string; variant_of: string | null }): Promise<Size[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("catalog");
+  const mainId = product.variant_of ?? product.id;
+  const { data, error } = await createPublicClient()
+    .from("products")
+    .select(SIZE_COLUMNS)
+    .or(`id.eq.${mainId},variant_of.eq.${mainId}`)
+    .eq("is_active", true);
+  if (error) fail("product sizes", error.message);
+  return data
+    .sort(bySizeOrder)
+    .map(({ id, slug, unit_label, selling_price, in_stock }) => ({ id, slug, unit_label, selling_price, in_stock }));
 }
 
 /** Slugs for prerendering product pages at build time. */
@@ -159,7 +224,7 @@ export function toSearchWords(query: string): string[] {
     .map((w) => w.slice(0, 30));
 }
 
-export async function searchProducts(query: string): Promise<Product[]> {
+export async function searchProducts(query: string): Promise<ProductWithSizes[]> {
   "use cache";
   cacheLife("minutes");
   cacheTag("catalog");
@@ -169,14 +234,15 @@ export async function searchProducts(query: string): Promise<Product[]> {
   let request = createPublicClient()
     .from("products")
     .select(PRODUCT_COLUMNS)
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .is("variant_of", null);
   // Every word must match the English or Urdu name (AND across words).
   for (const w of words) {
     request = request.or(`name.ilike.%${w}%,name_urdu.ilike.%${w}%`);
   }
   const { data, error } = await request.order("name").limit(50);
   if (error) fail("search results", error.message);
-  return data;
+  return withSizes(data);
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
