@@ -68,10 +68,43 @@ export async function saveProduct(_p: ActionState, fd: FormData): Promise<Action
   const unitLabel = text(fd, "unit_label", 40) ?? unit.name;
   if (variantOf && !text(fd, "unit_label", 40)) return { error: "Please enter the size name, e.g. 500 g." };
 
+  const own = isUuid(id) ? id : null;
+  const norm = (v: string) => v.trim().replace(/s+/g, " ").toLowerCase();
+
+  // Two products may share a name and unit (e.g. two Chairman rice, 1 kg) when the price is different.
+  // Only an exact copy (same name, same unit / size and same price) is refused.
+  const { data: samePrice } = await supabase.from("products").select("id, name, unit_label").eq("selling_price", selling);
+  const copy = (samePrice ?? []).find(
+    (o) => o.id !== own && norm(o.name) === norm(name) && norm(o.unit_label) === norm(unitLabel),
+  );
+  if (copy) {
+    return {
+      error: `“${name}” (${unitLabel}) at Rs ${selling} already exists. To add another one with the same name, change its price (or its unit / size).`,
+    };
+  }
+
+  // Web address (slug): typed by the admin, or made from the name. When made automatically and the name is
+  // already taken, add the unit and then the price so a second product with the same name still saves.
+  const typedSlug = text(fd, "slug", 60);
+  const baseSlug = slugify(typedSlug ?? (variantOf ? `${name} ${unitLabel}` : name)) || `item-${Date.now()}`;
+  let slug = baseSlug;
+  if (!typedSlug) {
+    const { data: used } = await supabase.from("products").select("id, slug").like("slug", `${baseSlug}%`).limit(500);
+    const taken = new Set((used ?? []).filter((o) => o.id !== own).map((o) => o.slug));
+    const withUnit = slugify(`${baseSlug} ${unitLabel}`);
+    const candidates = [baseSlug, withUnit, slugify(`${withUnit} ${String(selling).replace(".", "-")}`)];
+    slug = candidates.find((c) => c && !taken.has(c)) ?? "";
+    for (let n = 2; !slug && n < 1000; n++) {
+      const c = slugify(`${baseSlug} ${n}`);
+      if (!taken.has(c)) slug = c;
+    }
+    if (!slug) slug = `item-${Date.now()}`;
+  }
+
   const row: ProductInsert = {
     name,
     name_urdu: text(fd, "name_urdu", 120),
-    slug: slugify(text(fd, "slug", 60) ?? (variantOf ? `${name} ${unitLabel}` : name)) || `item-${Date.now()}`,
+    slug,
     variant_of: variantOf,
     category_id,
     unit_id,
