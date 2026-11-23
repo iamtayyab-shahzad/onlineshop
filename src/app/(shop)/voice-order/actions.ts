@@ -1,6 +1,8 @@
 "use server";
 
+import { after } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { notifyVoiceOrder } from "@/lib/voice-notify";
 import { createClient } from "@/lib/supabase/server";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -27,13 +29,19 @@ export async function createVoiceOrder(input: {
     addressId = data.id;
   }
   const duration = Math.max(0, Math.min(600, Math.round(Number(input.durationSeconds) || 0)));
-  const { error } = await supabase.from("voice_orders").insert({
+  const { data: saved, error } = await supabase
+    .from("voice_orders")
+    .insert({
     user_id: user.id,
     audio_path: input.audioPath,
     duration_seconds: duration,
     address_id: addressId,
     customer_note: String(input.note ?? "").trim().slice(0, 500) || null,
-  });
-  if (error) return { ok: false, error: "Could not send. Please try again or call us." };
+    })
+    .select("id")
+    .single();
+  if (error || !saved) return { ok: false, error: "Could not send. Please try again or call us." };
+  // Tell the admin on WhatsApp after the customer already has their confirmation. Never affects the order.
+  after(() => notifyVoiceOrder(supabase, saved.id));
   return { ok: true };
 }

@@ -4,6 +4,7 @@ import { adminDb } from "@/lib/auth";
 import { ActionForm } from "@/components/admin/action-form";
 import { AdminTitle, Card, Empty, inputCls } from "@/components/admin/admin-ui";
 import { updateVoiceOrder } from "@/app/admin/_actions/orders";
+import { resendVoiceAlert } from "@/app/admin/_actions/notifications";
 import { formatDate } from "@/lib/orders";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +20,7 @@ export default async function VoicePage({ searchParams }: { searchParams: Promis
   const { data } = await supabase
     .from("voice_orders")
     .select(
-      "id, audio_path, duration_seconds, customer_note, admin_note, status, created_at, profiles(full_name, phone), addresses(recipient_name, phone, address_line, area, landmark), orders(id, order_number)",
+      "id, audio_path, duration_seconds, customer_note, admin_note, status, created_at, alerted_at, alert_error, profiles(full_name, phone), addresses(recipient_name, phone, address_line, area, landmark), orders(id, order_number)",
     )
     .eq("status", tab)
     .order("created_at", { ascending: tab === "new" })
@@ -78,6 +79,16 @@ export default async function VoicePage({ searchParams }: { searchParams: Promis
               <audio controls preload="none" src={src} className="my-3 w-full" />
             ) : (
               <p className="my-3 text-sm text-destructive">Audio file not found.</p>
+            )}
+            {v.status === "new" && !v.alerted_at && (
+              <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-amber-50 p-2 text-sm">
+                <span>
+                  WhatsApp alert not sent{v.alert_error ? `: ${v.alert_error}` : " yet"}.
+                </span>
+                <ActionForm action={resendVoiceAlert} submit="Send alert" inline>
+                  <input type="hidden" name="voice_id" value={v.id} />
+                </ActionForm>
+              </div>
             )}
             {v.status === "new" && !v.orders && (
               <Link

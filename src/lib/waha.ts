@@ -50,3 +50,39 @@ export async function sendWhatsapp(toDigits: string, text: string): Promise<void
     throw new Error(`WhatsApp server replied ${res.status}${detail ? `: ${detail}` : ""}`);
   }
 }
+
+type AudioFile = { data: string; mimetype: string; filename: string };
+
+async function post(path: string, body: Record<string, unknown>): Promise<void> {
+  const base = process.env.WAHA_BASE_URL?.replace(/\/+$/, "");
+  const key = process.env.WAHA_API_KEY;
+  if (!base || !key) throw new Error("WAHA is not configured");
+  let res: Response;
+  try {
+    res = await fetch(`${base}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Api-Key": key },
+      body: JSON.stringify({ session: process.env.WAHA_SESSION || "default", ...body }),
+      signal: AbortSignal.timeout(60_000),
+      cache: "no-store",
+    });
+  } catch {
+    throw new Error("Could not reach the WhatsApp server");
+  }
+  if (!res.ok) throw new Error(`WhatsApp server replied ${res.status}`);
+}
+
+/**
+ * Forwards a recording. Tries to send it as a playable voice note first; if the WAHA server cannot do
+ * that (it needs a paid add-on to convert formats), sends it as an audio file instead.
+ */
+export async function sendWhatsappAudio(toDigits: string, file: AudioFile): Promise<"voice" | "file"> {
+  const chatId = `${toDigits}@c.us`;
+  try {
+    await post("/api/sendVoice", { chatId, file, convert: true });
+    return "voice";
+  } catch {
+    await post("/api/sendFile", { chatId, file });
+    return "file";
+  }
+}

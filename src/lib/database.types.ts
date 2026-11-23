@@ -808,6 +808,9 @@ export type Database = {
       voice_orders: {
         Row: {
           address_id: string | null
+          alert_claimed_at: string | null
+          alert_error: string | null
+          alerted_at: string | null
           admin_note: string | null
           audio_path: string
           created_at: string
@@ -821,6 +824,9 @@ export type Database = {
         }
         Insert: {
           address_id?: string | null
+          alert_claimed_at?: string | null
+          alert_error?: string | null
+          alerted_at?: string | null
           admin_note?: string | null
           audio_path: string
           created_at?: string
@@ -834,6 +840,9 @@ export type Database = {
         }
         Update: {
           address_id?: string | null
+          alert_claimed_at?: string | null
+          alert_error?: string | null
+          alerted_at?: string | null
           admin_note?: string | null
           audio_path?: string
           created_at?: string
@@ -933,6 +942,14 @@ export type Database = {
       claim_order_notification: {
         Args: { p_force?: boolean; p_order_id: string; p_recipient: string; p_secret: string }
         Returns: Json
+      }
+      claim_voice_alert: {
+        Args: { p_force?: boolean; p_secret: string; p_voice_id: string }
+        Returns: Json
+      }
+      record_voice_alert: {
+        Args: { p_error?: string; p_ok: boolean; p_secret: string; p_voice_id: string }
+        Returns: undefined
       }
       record_order_notification: {
         Args: { p_error?: string; p_ok: boolean; p_order_id: string; p_recipient: string; p_secret: string }

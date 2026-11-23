@@ -46,6 +46,7 @@ All schema changes are kept as SQL files in [`supabase/migrations`](supabase/mig
 8. `20261121090000_whatsapp_notifications.sql` – automatic WhatsApp order alerts: notification queue + status, admin-only settings, and the secret-protected functions that build each message
 9. `20261122090000_admin_order_tools.sql` – three order stages (New / Delivered / Cancelled), order discount, admin edit-order and create-order-from-voice functions, sales report net of discount, and the optional WhatsApp admin login code
 10. `20261123090000_product_variants.sql` – product sizes: `products.variant_of` links a size (e.g. 500 g) to its main product (one level only)
+11. `20261124090000_voice_order_alerts.sql` – WhatsApp alert to the admin for every voice order (who, address, note), with resend if it failed
 
 **Required Supabase setting (Stage 2):** in Authentication → Sign In / Providers → Email, turn **"Confirm email" OFF**.
 Customers sign in with their mobile number and password, and there is no email to confirm.
@@ -65,7 +66,7 @@ When an order is saved, the server sends two WhatsApp messages through your WAHA
 - **Admin:** customer name, phone, address, items, selling prices, total.
 - **Shop:** product names, quantities, supplier prices and supplier total only.
 
-An order never depends on WhatsApp. Each message has a row in `order_notifications` (pending / sending / sent / failed, tries, last error), so nothing is sent twice and failures can be resent from **Admin → order page** or **Settings → Retry failed messages**. Admin number and on/off: **Settings → Order alerts**. Shop number: **Settings → Supplier shop**.
+A **voice order** sends the admin one message too (customer, address, note), followed by the recording itself as a WhatsApp voice note or audio file; it always stays in Admin → Voice orders too. An order never depends on WhatsApp. Each message has a row in `order_notifications` (pending / sending / sent / failed, tries, last error), so nothing is sent twice and failures can be resent from **Admin → order page** or **Settings → Retry failed messages**. Admin number and on/off: **Settings → Order alerts**. Shop number: **Settings → Supplier shop**.
 
 ## Admin order tools and login code
 

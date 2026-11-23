@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { adminDb } from "@/lib/auth";
 import { bool, isUuid, text, type ActionState } from "@/lib/admin-types";
 import { notifyOrder, type NotifyOutcome, type Recipient } from "@/lib/order-notify";
+import { notifyVoiceOrder } from "@/lib/voice-notify";
 import { normalizeWhatsapp } from "@/lib/waha";
 
 /** Admin number + on/off switch for automatic order alerts. (The shop's number is in Settings → Supplier shop.) */
@@ -52,6 +53,16 @@ export async function resendNotification(_p: ActionState, fd: FormData): Promise
   return r === "sent" ? { ok: "Sent." } : { error: `Message ${word(r)}. See the reason above.` };
 }
 
+/** Sends one voice order’s WhatsApp alert again (admin only). */
+export async function resendVoiceAlert(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const { supabase } = await adminDb();
+  const voiceId = fd.get("voice_id");
+  if (!isUuid(voiceId)) return { error: "Invalid request." };
+  const out = await notifyVoiceOrder(supabase, voiceId, { force: true });
+  refresh();
+  return out === "sent" ? { ok: "Sent." } : { error: `Message ${word(out)}. See the reason shown on the card.` };
+}
+
 /** Tries every failed or stuck alert again (newest 20). */
 export async function retryFailedNotifications(): Promise<ActionState> {
   const { supabase } = await adminDb();
@@ -61,12 +72,24 @@ export async function retryFailedNotifications(): Promise<ActionState> {
     .in("status", ["failed", "pending", "sending"]) // "sending" is only taken again once it is over 2 minutes old
     .order("created_at", { ascending: false })
     .limit(20);
-  if (!data || data.length === 0) return { ok: "Nothing to retry." };
+  // Voice orders that never got their alert (new ones only).
+  const { data: voice } = await supabase
+    .from("voice_orders")
+    .select("id")
+    .eq("status", "new")
+    .is("alerted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const total = (data?.length ?? 0) + (voice?.length ?? 0);
+  if (total === 0) return { ok: "Nothing to retry." };
   let sent = 0;
-  for (const n of data) {
+  for (const n of data ?? []) {
     const out = await notifyOrder(supabase, n.order_id, { recipients: [n.recipient as Recipient] });
     if (out[n.recipient as Recipient] === "sent") sent++;
   }
+  for (const v of voice ?? []) {
+    if ((await notifyVoiceOrder(supabase, v.id)) === "sent") sent++;
+  }
   refresh();
-  return sent === data.length ? { ok: `Sent ${sent}.` } : { error: `Sent ${sent} of ${data.length}. The rest failed again.` };
+  return sent === total ? { ok: `Sent ${sent}.` } : { error: `Sent ${sent} of ${total}. The rest failed again.` };
 }
