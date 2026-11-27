@@ -5,7 +5,7 @@ import { ActionForm } from "@/components/admin/action-form";
 import { AdminTitle, Card, LinkButton } from "@/components/admin/admin-ui";
 import { ImageUploader } from "@/components/admin/image-uploader";
 import { deleteProduct } from "@/app/admin/_actions/catalog";
-import { revertToMainPhoto } from "@/app/admin/_actions/images";
+import { removeMainPhoto, revertToMainPhoto } from "@/app/admin/_actions/images";
 import { ImageTile, publicImageUrl } from "../../images/image-tile";
 import { ProductForm } from "../product-form";
 import { isUuid } from "@/lib/admin-types";
@@ -54,6 +54,9 @@ export default async function EditProductPage({
   // A size shows its main product's photo until it gets one of its own.
   const usesMainPhoto = !!p.variant_of && !!parent?.image_url && p.image_url === parent.image_url;
   const canUseMainPhoto = !!p.variant_of && !!parent?.image_url && !usesMainPhoto;
+  // Main photo that is not in this product's own list (a library photo shared with another product).
+  const sharedPhoto =
+    !!p.image_url && !usesMainPhoto && !(images ?? []).some((img) => publicImageUrl(img.path) === p.image_url);
 
   return (
     <div className="flex flex-col gap-4">
@@ -77,6 +80,25 @@ export default async function EditProductPage({
             </p>
           </div>
         )}
+        {sharedPhoto && (
+          <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-muted p-3 text-sm">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={p.image_url!} alt="" className="size-16 shrink-0 rounded-lg bg-card object-contain" />
+            <p className="min-w-48 flex-1">
+              <strong>Main photo</strong> (this photo is also used by another product, so it is listed there in the
+              library).
+            </p>
+            <ActionForm
+              action={removeMainPhoto}
+              submit="Remove from this product"
+              danger
+              inline
+              confirm="Remove this photo from this product? The other product keeps it."
+            >
+              <input type="hidden" name="product_id" value={p.id} />
+            </ActionForm>
+          </div>
+        )}
         {canUseMainPhoto && (
           <div className="mb-3">
             <ActionForm action={revertToMainPhoto} submit="Use the main product’s photo instead" inline>
@@ -92,7 +114,9 @@ export default async function EditProductPage({
           </div>
         ) : (
           <p className="mb-3 text-sm text-muted-foreground">
-            {usesMainPhoto ? "No photos of its own yet." : "No photos yet. Customers see a plain placeholder."}
+            {usesMainPhoto || sharedPhoto
+              ? "No photos of its own yet."
+              : "No photos yet. Customers see a plain placeholder."}
           </p>
         )}
         <ImageUploader productId={p.id} />

@@ -71,14 +71,19 @@ export function ImageUploader({ productId }: { productId?: string }) {
         failed++;
       }
     }
-    const res = done.length ? await registerImages(done, productId) : { added: 0, duplicates: 0 };
+    const res: Awaited<ReturnType<typeof registerImages>> = done.length
+      ? await registerImages(done, productId)
+      : { added: 0, duplicates: 0 };
     setBusy(false);
     setMsg(
       res.error ??
         `${res.added} new image(s) added` +
           (res.duplicates ? `, ${res.duplicates} already in the library` : "") +
           (failed ? `, ${failed} failed` : "") +
-          ".",
+          "." +
+          (res.sharedWith?.length
+            ? ` The photo is also used by ${res.sharedWith.join(", ")}; it is now this product's main photo too.`
+            : ""),
     );
     if (input.current) input.current.value = "";
     router.refresh();

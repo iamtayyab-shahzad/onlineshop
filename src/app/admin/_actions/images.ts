@@ -23,7 +23,7 @@ export type UploadedImage = {
 export async function registerImages(
   files: UploadedImage[],
   productId?: string,
-): Promise<{ added: number; duplicates: number; error?: string }> {
+): Promise<{ added: number; duplicates: number; sharedWith?: string[]; error?: string }> {
   const { supabase } = await adminDb();
   if (!Array.isArray(files) || files.length > 200) return { added: 0, duplicates: 0, error: "Too many files." };
   if (productId !== undefined && !isUuid(productId)) return { added: 0, duplicates: 0, error: "Invalid product." };
@@ -42,18 +42,42 @@ export async function registerImages(
     .upsert(rows, { onConflict: "sha256", ignoreDuplicates: true })
     .select("id");
   if (error) return { added: 0, duplicates: 0, error: "Could not save the images." };
-  if (productId) {
+  let sharedWith: string[] | undefined;
+  if (productId && rows.length) {
+    const hashes = rows.map((r) => r.sha256);
     // Existing duplicates: attach them to this product too if they were unassigned.
-    await supabase
-      .from("product_images")
-      .update({ product_id: productId })
-      .in("sha256", rows.map((r) => r.sha256))
-      .is("product_id", null);
+    await supabase.from("product_images").update({ product_id: productId }).in("sha256", hashes).is("product_id", null);
+
+    // A photo already in the library for ANOTHER product stays in that product's list (a photo is stored
+    // once), but this product shows it as its main photo, which is what uploading it here means.
+    const { data: lib } = await supabase.from("product_images").select("sha256, path, product_id").in("sha256", hashes);
+    const others = (lib ?? []).filter((r) => r.product_id && r.product_id !== productId);
+    if (others.length) {
+      const first = hashes.map((h) => others.find((o) => o.sha256 === h)).find(Boolean)!;
+      await setProductImage(productId, supabase.storage.from(BUCKET).getPublicUrl(first.path).data.publicUrl);
+      const { data: owners } = await supabase
+        .from("products")
+        .select("name, unit_label")
+        .in("id", [...new Set(others.map((o) => o.product_id!))]);
+      sharedWith = (owners ?? []).map((o) => `${o.name} (${o.unit_label})`);
+    }
     await ensureMainImage(productId);
   }
   updateTag("catalog");
   refresh();
-  return { added: data?.length ?? 0, duplicates: rows.length - (data?.length ?? 0) };
+  return { added: data?.length ?? 0, duplicates: rows.length - (data?.length ?? 0), sharedWith };
+}
+
+/** Takes the main photo off a product (e.g. a photo shared from another product). Its own first photo, if any, takes over. */
+export async function removeMainPhoto(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const id = fd.get("product_id");
+  if (!isUuid(id)) return { error: "Invalid request." };
+  const error = await setProductImage(id, null);
+  if (error) return { error: "Could not save." };
+  await ensureMainImage(id);
+  updateTag("catalog");
+  refresh();
+  return { ok: "Photo removed from this product." };
 }
 
 /**
@@ -103,6 +127,7 @@ export async function assignImage(_p: ActionState, fd: FormData): Promise<Action
   const id = fd.get("image_id");
   const productId = fd.get("product_id");
   if (!isUuid(id) || (productId && !isUuid(productId))) return { error: "Choose a product." };
+  const { data: before } = await supabase.from("product_images").select("product_id").eq("id", id).maybeSingle();
   const { data: img, error } = await supabase
     .from("product_images")
     .update({ product_id: (productId as string) || null })
@@ -110,8 +135,18 @@ export async function assignImage(_p: ActionState, fd: FormData): Promise<Action
     .select("path")
     .single();
   if (error || !img) return { error: "Could not save." };
-  if (!productId) await clearMainIfUsing(img.path);
-  else await ensureMainImage(productId as string);
+  if (!productId) {
+    // Only the product it was taken from loses it as main photo; other products sharing it keep it.
+    const oldId = before?.product_id;
+    if (oldId) {
+      const url = supabase.storage.from(BUCKET).getPublicUrl(img.path).data.publicUrl;
+      const { data: old } = await supabase.from("products").select("image_url").eq("id", oldId).maybeSingle();
+      if (old?.image_url === url) {
+        await setProductImage(oldId, null);
+        await ensureMainImage(oldId);
+      }
+    }
+  } else await ensureMainImage(productId as string);
   updateTag("catalog");
   refresh();
   return { ok: productId ? "Assigned." : "Removed from product." };
