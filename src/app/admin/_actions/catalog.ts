@@ -163,20 +163,44 @@ export async function deleteProduct(_p: ActionState, fd: FormData): Promise<Acti
   const { error } = await supabase.from("products").delete().eq("id", id);
   if (error) return { error: "Could not delete. You can untick “Show in shop” instead." };
   updateTag("catalog");
-  redirect("/admin/products");
+  const back = String(fd.get("back") ?? "");
+  redirect(back.startsWith("/admin/products?") ? back : "/admin/products");
 }
 
+/** Delete from the products list: stays on the list (same search and position) instead of redirecting. */
+export async function quickDeleteProduct(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const { supabase } = await adminDb();
+  const id = fd.get("id");
+  if (!isUuid(id)) return { error: "Invalid request." };
+  const { error } = await supabase.from("products").delete().eq("id", id);
+  if (error) return { error: "Could not delete. Open it and untick “Show in shop” instead." };
+  return done("Deleted");
+}
+
+/** Products list quick edit: selling price, supplier (buying) price and stock. */
 export async function quickProductUpdate(_p: ActionState, fd: FormData): Promise<ActionState> {
   const { supabase } = await adminDb();
   const id = fd.get("id");
   const price = num(fd, "selling_price");
-  if (!isUuid(id) || price == null || price < 0) return { error: "Invalid price." };
+  if (!isUuid(id) || price == null || price < 0 || price > 1_000_000) return { error: "Enter a valid selling price." };
+  const hasSupplier = fd.has("supplier_price");
+  const supplier = num(fd, "supplier_price");
+  if (hasSupplier && (supplier === undefined || (supplier != null && (supplier < 0 || supplier > 1_000_000)))) {
+    return { error: "Enter a valid buying price, or leave it empty." };
+  }
   const { error } = await supabase
     .from("products")
     .update({ selling_price: price, in_stock: bool(fd, "in_stock") })
     .eq("id", id);
   if (error) return { error: "Could not save." };
-  return done("Saved");
+  if (hasSupplier) {
+    const { error: costErr } =
+      supplier == null
+        ? await supabase.from("product_costs").delete().eq("product_id", id)
+        : await supabase.from("product_costs").upsert({ product_id: id, supplier_price: supplier });
+    if (costErr) return { error: "Selling price saved, but the buying price could not be saved." };
+  }
+  return done(supplier != null && price < supplier ? "Saved (selling below cost!)" : "Saved");
 }
 
 /* ------------------------------ Categories ------------------------------- */

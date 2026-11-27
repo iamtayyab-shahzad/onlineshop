@@ -18,9 +18,14 @@ export default async function EditProductPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ created?: string }>;
+  searchParams: Promise<{ created?: string; q?: string; cat?: string; from?: string }>;
 }) {
-  const [{ id }, { created }] = await Promise.all([params, searchParams]);
+  const [{ id }, { created, q, cat, from }] = await Promise.all([params, searchParams]);
+  // The products list's search / category, so "← Back" returns to the same list and row.
+  const listQs = new URLSearchParams();
+  if (q) listQs.set("q", q.slice(0, 80));
+  if (cat && isUuid(cat)) listQs.set("cat", cat);
+  const listHref = `/admin/products${listQs.size ? `?${listQs}` : ""}`;
   if (!isUuid(id)) notFound();
   const { supabase } = await adminDb();
   const [{ data: p }, { data: cost }, { data: images }, { data: cats }, { data: units }, { data: sizes }, { data: mains }] =
@@ -48,7 +53,7 @@ export default async function EditProductPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <AdminTitle title={p.variant_of ? `${p.name} (${p.unit_label})` : p.name} backHref={p.variant_of ? `/admin/products/${p.variant_of}` : "/admin/products"}>
+      <AdminTitle title={p.variant_of ? `${p.name} (${p.unit_label})` : p.name} backHref={p.variant_of && from !== "list" ? `/admin/products/${p.variant_of}` : listHref}>
         {p.is_active && (
           <LinkButton href={`/product/${p.slug}`} variant="outline">
             View in shop
@@ -134,6 +139,7 @@ export default async function EditProductPage({
           confirm={`Delete “${p.name}${p.variant_of ? ` (${p.unit_label})` : ""}” permanently? This cannot be undone. Its photos stay in the image library.${hasSizes ? " Its sizes stay in the shop as separate products." : ""}`}
         >
           <input type="hidden" name="id" value={p.id} />
+          <input type="hidden" name="back" value={listHref} />
         </ActionForm>
       </Card>
     </div>

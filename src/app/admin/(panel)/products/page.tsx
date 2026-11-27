@@ -3,10 +3,12 @@ import Link from "next/link";
 import { adminDb } from "@/lib/auth";
 import { ActionForm } from "@/components/admin/action-form";
 import { AdminTitle, Empty, LinkButton, Table } from "@/components/admin/admin-ui";
-import { quickProductUpdate } from "@/app/admin/_actions/catalog";
-import { formatPrice } from "@/lib/format";
+import { quickDeleteProduct, quickProductUpdate } from "@/app/admin/_actions/catalog";
+import { ListPosition } from "./list-position";
 
 export const metadata: Metadata = { title: "Products" };
+
+const priceCls = "h-10 w-24 rounded-lg border-2 px-2 tabular-nums";
 
 export default async function ProductsPage({ searchParams }: { searchParams: Promise<{ q?: string; cat?: string }> }) {
   const { supabase } = await adminDb();
@@ -28,8 +30,15 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   const sizeCount = new Map<string, number>();
   for (const p of products ?? []) if (p.variant_of) sizeCount.set(p.variant_of, (sizeCount.get(p.variant_of) ?? 0) + 1);
 
+  // Keep the search / category when opening a product, so "← Back" returns to the same list.
+  const listQs = new URLSearchParams({ from: "list" });
+  if (q) listQs.set("q", q);
+  if (cat) listQs.set("cat", cat);
+  const suffix = `?${listQs}`;
+
   return (
     <div>
+      <ListPosition />
       <AdminTitle title="Products">
         <LinkButton href="/admin/products/new">Add product</LinkButton>
       </AdminTitle>
@@ -48,11 +57,13 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
       {!products?.length ? (
         <Empty>No products yet.</Empty>
       ) : (
-        <Table head={["", "Product", "Supplier", "Price / stock (quick edit)", ""]}>
+        <Table head={["", "Product", "Prices & stock (edit here, then Save)", ""]}>
           {products.map((p) => {
             const cost = p.product_costs?.supplier_price;
+            const sizes = sizeCount.get(p.id);
+            const label = `${p.name}${p.variant_of ? ` (${p.unit_label})` : ""}`;
             return (
-              <tr key={p.id} className={p.is_active ? "" : "opacity-60"}>
+              <tr key={p.id} id={`p-${p.id}`} className={`transition-colors ${p.is_active ? "" : "opacity-60"}`}>
                 <td className="w-14 px-3 py-2">
                   {p.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -62,43 +73,72 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                   )}
                 </td>
                 <td className="px-3 py-2">
-                  <Link href={`/admin/products/${p.id}`} className="font-semibold text-primary">
+                  <Link href={`/admin/products/${p.id}${suffix}`} data-remember={p.id} className="font-semibold text-primary">
                     {p.name}
                     {p.variant_of && <span className="font-normal text-foreground"> ({p.unit_label})</span>}
                   </Link>
                   <div className="text-xs text-muted-foreground">
                     {catName.get(p.category_id)} · per {p.unit_label}
                     {p.purchase_method !== "quantity" ? " · by amount" : ""}
-                    {p.variant_of ? " · a size" : sizeCount.get(p.id) ? ` · ${sizeCount.get(p.id)! + 1} sizes` : ""}
+                    {p.variant_of ? " · a size" : sizes ? ` · ${sizes + 1} sizes` : ""}
                     {!p.is_active ? " · hidden" : ""}
                   </div>
-                </td>
-                <td className="px-3 py-2 text-muted-foreground tabular-nums">
-                  {cost != null ? formatPrice(cost) : <span className="text-amber-700">not set</span>}
-                  {cost != null && Number(p.selling_price) < Number(cost) && (
-                    <div className="text-xs font-semibold text-destructive">below cost!</div>
-                  )}
                 </td>
                 <td className="px-3 py-2">
                   <ActionForm action={quickProductUpdate} submit="Save" inline>
                     <input type="hidden" name="id" value={p.id} />
-                    <input
-                      name="selling_price"
-                      defaultValue={p.selling_price}
-                      inputMode="decimal"
-                      aria-label={`Price of ${p.name}`}
-                      className="h-10 w-24 rounded-lg border-2 px-2"
-                    />
-                    <label className="flex items-center gap-1 text-sm">
+                    <label className="flex flex-col text-xs text-muted-foreground">
+                      Selling Rs
+                      <input
+                        name="selling_price"
+                        defaultValue={p.selling_price}
+                        inputMode="decimal"
+                        required
+                        aria-label={`Selling price of ${label}`}
+                        className={`${priceCls} text-base text-foreground`}
+                      />
+                    </label>
+                    <label className="flex flex-col text-xs text-muted-foreground">
+                      Buying Rs
+                      <input
+                        name="supplier_price"
+                        defaultValue={cost ?? ""}
+                        inputMode="decimal"
+                        placeholder="not set"
+                        aria-label={`Buying (supplier) price of ${label}`}
+                        className={`${priceCls} text-base text-foreground ${cost == null ? "border-amber-400" : ""}`}
+                      />
+                    </label>
+                    <label className="flex items-center gap-1 self-end pb-2 text-sm">
                       <input type="checkbox" name="in_stock" defaultChecked={p.in_stock} className="size-5 accent-primary" />
                       In stock
                     </label>
+                    {cost != null && Number(p.selling_price) < Number(cost) && (
+                      <span className="w-full text-xs font-semibold text-destructive">Selling below cost!</span>
+                    )}
                   </ActionForm>
                 </td>
                 <td className="px-3 py-2">
-                  <Link href={`/admin/products/${p.id}`} className="text-sm text-primary">
-                    Edit
-                  </Link>
+                  <div className="flex flex-col items-start gap-2">
+                    <Link
+                      href={`/admin/products/${p.id}${suffix}`}
+                      data-remember={p.id}
+                      className="inline-flex h-10 items-center rounded-lg border-2 px-4 text-sm font-semibold text-primary"
+                    >
+                      Edit
+                    </Link>
+                    <ActionForm
+                      action={quickDeleteProduct}
+                      submit="Delete"
+                      danger
+                      inline
+                      confirm={`Delete “${label}” permanently? This cannot be undone. Old orders keep their details.${
+                        sizes ? ` Its ${sizes} other size(s) stay in the shop as separate products.` : ""
+                      }`}
+                    >
+                      <input type="hidden" name="id" value={p.id} />
+                    </ActionForm>
+                  </div>
                 </td>
               </tr>
             );
