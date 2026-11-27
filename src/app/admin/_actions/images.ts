@@ -56,11 +56,35 @@ export async function registerImages(
   return { added: data?.length ?? 0, duplicates: rows.length - (data?.length ?? 0) };
 }
 
-/** If a product has no main photo yet, use its first image. */
+/**
+ * Sets a product's main photo. For a main product, its sizes that still show the old main photo
+ * (or none) follow along; sizes with their own photo keep it.
+ */
+async function setProductImage(productId: string, url: string | null) {
+  const { supabase } = await adminDb();
+  const { data: p } = await supabase.from("products").select("image_url, variant_of").eq("id", productId).single();
+  const { error } = await supabase.from("products").update({ image_url: url }).eq("id", productId);
+  if (error) return error;
+  if (p && !p.variant_of) {
+    const sizes = () => supabase.from("products").update({ image_url: url }).eq("variant_of", productId);
+    await sizes().is("image_url", null);
+    if (p.image_url && p.image_url !== url) await sizes().eq("image_url", p.image_url);
+  }
+  return null;
+}
+
+/**
+ * If a product has no photo of its own yet, use its first image.
+ * A size that is still showing its main product's photo counts as "no photo of its own".
+ */
 async function ensureMainImage(productId: string) {
   const { supabase } = await adminDb();
-  const { data: p } = await supabase.from("products").select("image_url").eq("id", productId).single();
-  if (p?.image_url) return;
+  const { data: p } = await supabase.from("products").select("image_url, variant_of").eq("id", productId).single();
+  if (p?.image_url) {
+    if (!p.variant_of) return;
+    const { data: main } = await supabase.from("products").select("image_url").eq("id", p.variant_of).maybeSingle();
+    if (p.image_url !== main?.image_url) return; // the size already has its own photo
+  }
   const { data: img } = await supabase
     .from("product_images")
     .select("path")
@@ -70,8 +94,7 @@ async function ensureMainImage(productId: string) {
     .limit(1)
     .maybeSingle();
   if (!img) return;
-  const url = supabase.storage.from(BUCKET).getPublicUrl(img.path).data.publicUrl;
-  await supabase.from("products").update({ image_url: url }).eq("id", productId);
+  await setProductImage(productId, supabase.storage.from(BUCKET).getPublicUrl(img.path).data.publicUrl);
 }
 
 /** Assign (or unassign with an empty product) one image. */
@@ -118,12 +141,26 @@ export async function setMainImage(_p: ActionState, fd: FormData): Promise<Actio
   if (!isUuid(id)) return { error: "Invalid request." };
   const { data: img } = await supabase.from("product_images").select("path, product_id").eq("id", id).single();
   if (!img?.product_id) return { error: "Assign the image to a product first." };
-  const url = supabase.storage.from(BUCKET).getPublicUrl(img.path).data.publicUrl;
-  const { error } = await supabase.from("products").update({ image_url: url }).eq("id", img.product_id);
+  const error = await setProductImage(img.product_id, supabase.storage.from(BUCKET).getPublicUrl(img.path).data.publicUrl);
   if (error) return { error: "Could not save." };
   updateTag("catalog");
   refresh();
   return { ok: "Main photo set." };
+}
+
+/** A size goes back to showing its main product's photo (its own photos stay in its list). */
+export async function revertToMainPhoto(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const { supabase } = await adminDb();
+  const id = fd.get("product_id");
+  if (!isUuid(id)) return { error: "Invalid request." };
+  const { data: p } = await supabase.from("products").select("variant_of").eq("id", id).single();
+  if (!p?.variant_of) return { error: "This is not a size of another product." };
+  const { data: main } = await supabase.from("products").select("image_url").eq("id", p.variant_of).single();
+  const { error } = await supabase.from("products").update({ image_url: main?.image_url ?? null }).eq("id", id);
+  if (error) return { error: "Could not save." };
+  updateTag("catalog");
+  refresh();
+  return { ok: "Now using the main product’s photo." };
 }
 
 /** Removes the file and its library entry. Products using it as main photo fall back to the neutral placeholder. */

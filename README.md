@@ -47,6 +47,7 @@ All schema changes are kept as SQL files in [`supabase/migrations`](supabase/mig
 9. `20261122090000_admin_order_tools.sql` – three order stages (New / Delivered / Cancelled), order discount, admin edit-order and create-order-from-voice functions, sales report net of discount, and the optional WhatsApp admin login code
 10. `20261123090000_product_variants.sql` – product sizes: `products.variant_of` links a size (e.g. 500 g) to its main product (one level only)
 11. `20261124090000_voice_order_alerts.sql` – WhatsApp alert to the admin for every voice order (who, address, note), with resend if it failed
+12. `20261127090000_size_own_photos.sql` – one-time fix: sizes that already have their own photo show it instead of the main product's photo
 
 **Required Supabase setting (Stage 2):** in Authentication → Sign In / Providers → Email, turn **"Confirm email" OFF**.
 Customers sign in with their mobile number and password, and there is no email to confirm.
@@ -83,6 +84,7 @@ One product can be sold in several sizes, each with its own price. Customers see
 - **Add sizes:** Admin → Products → open the main product → **Sizes → Add a size**. The form starts with the main product's name, category, unit and photo; type the size name (e.g. `500 g`), the selling price and the supplier price. Repeat for each size. Give the main product a size name too (e.g. `1 kg`) in its *Price label*.
 - **Existing product → size:** open it and set **Size of** to the main product.
 - Every size is a normal product behind the scenes (own price, supplier price, stock, photo, buying rules), so the cart, orders, Monthly List, reports and WhatsApp messages need no changes. A size can be hidden or marked out of stock on its own.
+- **Photos:** a new size shows the main product's photo. Upload a photo on the size's page (or press *Make main* on one) and customers see that photo when they pick the size. *Use the main product's photo instead* switches back. Changing the main product's photo also changes it for every size still using it.
 - One level only: a size cannot have sizes. Deleting a main product leaves its sizes in the shop as separate products.
 
 Setup (once):

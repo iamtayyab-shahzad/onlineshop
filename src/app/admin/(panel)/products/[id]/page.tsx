@@ -5,6 +5,7 @@ import { ActionForm } from "@/components/admin/action-form";
 import { AdminTitle, Card, LinkButton } from "@/components/admin/admin-ui";
 import { ImageUploader } from "@/components/admin/image-uploader";
 import { deleteProduct } from "@/app/admin/_actions/catalog";
+import { revertToMainPhoto } from "@/app/admin/_actions/images";
 import { ImageTile, publicImageUrl } from "../../images/image-tile";
 import { ProductForm } from "../product-form";
 import { isUuid } from "@/lib/admin-types";
@@ -45,11 +46,14 @@ export default async function EditProductPage({
       .select("id, name, unit_label, selling_price, is_active, in_stock")
       .eq("variant_of", id)
       .order("selling_price"),
-    supabase.from("products").select("id, name, unit_label").is("variant_of", null).neq("id", id).order("name").limit(500),
+    supabase.from("products").select("id, name, unit_label, image_url").is("variant_of", null).neq("id", id).order("name").limit(500),
   ]);
   if (!p) notFound();
   const parent = p.variant_of ? mains?.find((m) => m.id === p.variant_of) : undefined;
   const hasSizes = !!sizes?.length;
+  // A size shows its main product's photo until it gets one of its own.
+  const usesMainPhoto = !!p.variant_of && !!parent?.image_url && p.image_url === parent.image_url;
+  const canUseMainPhoto = !!p.variant_of && !!parent?.image_url && !usesMainPhoto;
 
   return (
     <div className="flex flex-col gap-4">
@@ -63,6 +67,23 @@ export default async function EditProductPage({
       {created && <p className="rounded-lg bg-primary/10 p-3 font-medium text-primary">Product added. Now add its photos below.</p>}
 
       <Card title="Photos">
+        {usesMainPhoto && (
+          <div className="mb-3 flex items-center gap-3 rounded-lg bg-muted p-3 text-sm">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={parent!.image_url!} alt="" className="size-16 shrink-0 rounded-lg bg-card object-contain" />
+            <p>
+              Customers see the <strong>main product&apos;s photo</strong> for this size. To show a different photo,
+              upload it below{images?.length ? " or press “Make main” on one of this size’s photos" : ""}.
+            </p>
+          </div>
+        )}
+        {canUseMainPhoto && (
+          <div className="mb-3">
+            <ActionForm action={revertToMainPhoto} submit="Use the main product’s photo instead" inline>
+              <input type="hidden" name="product_id" value={p.id} />
+            </ActionForm>
+          </div>
+        )}
         {images?.length ? (
           <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {images.map((img) => (
@@ -70,7 +91,9 @@ export default async function EditProductPage({
             ))}
           </div>
         ) : (
-          <p className="mb-3 text-sm text-muted-foreground">No photos yet. Customers see a plain placeholder.</p>
+          <p className="mb-3 text-sm text-muted-foreground">
+            {usesMainPhoto ? "No photos of its own yet." : "No photos yet. Customers see a plain placeholder."}
+          </p>
         )}
         <ImageUploader productId={p.id} />
         <p className="mt-2 text-xs text-muted-foreground">
