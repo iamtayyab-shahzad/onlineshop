@@ -3,6 +3,7 @@ import { Mic } from "lucide-react";
 import { getCategories, getFeaturedProducts } from "@/lib/catalog";
 import { SearchBox } from "@/components/search-box";
 import { ProductGrid } from "@/components/product-card";
+import { InstallApp } from "@/components/install-app";
 
 export default async function HomePage() {
   const [categories, featured] = await Promise.all([getCategories(), getFeaturedProducts()]);
@@ -23,6 +24,8 @@ export default async function HomePage() {
           <span className="block text-sm text-muted-foreground">Just say your list. We will call you to confirm.</span>
         </span>
       </Link>
+
+      <InstallApp place="home" />
 
       <section aria-labelledby="cat-heading">
         <h2 id="cat-heading" className="mb-3 text-xl font-bold">

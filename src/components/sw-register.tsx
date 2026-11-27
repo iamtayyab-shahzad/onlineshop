@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
+// Starts listening for the browser's install offer on every shop page, so the "Install our app"
+// button works even if the customer lands on a product page first.
+import "@/lib/install-prompt";
 
 /** Registers the service worker in production only (avoids stale pages while developing). */
 export function ServiceWorkerRegister() {

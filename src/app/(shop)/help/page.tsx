@@ -4,6 +4,7 @@ import { Clock, MapPin, MessageCircle, Phone, Mic } from "lucide-react";
 import { getStoreSettings } from "@/lib/catalog";
 import { formatPrice } from "@/lib/format";
 import { PageTitle } from "@/components/page-title";
+import { InstallApp } from "@/components/install-app";
 
 export const metadata: Metadata = { title: "Help & contact" };
 
@@ -93,6 +94,8 @@ export default async function HelpPage() {
           <span className="block text-sm text-muted-foreground">Just say your list. We will call you to confirm.</span>
         </span>
       </Link>
+
+      <InstallApp place="help" />
 
       <section aria-labelledby="how-heading">
         <h2 id="how-heading" className="mb-3 text-xl font-bold">

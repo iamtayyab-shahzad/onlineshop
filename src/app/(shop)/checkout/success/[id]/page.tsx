@@ -12,6 +12,7 @@ import { PAYMENT_LABEL } from "@/lib/orders";
 import { formatPkMobile } from "@/lib/phone";
 import { PayDetails } from "@/components/pay-details";
 import { PaymentProofForm } from "@/components/payment-proof-form";
+import { InstallApp } from "@/components/install-app";
 
 export const metadata: Metadata = { title: "Order placed" };
 
@@ -70,6 +71,8 @@ async function Success({ params }: { params: PageProps<"/checkout/success/[id]">
           anyone, even if they say they are from our shop.
         </span>
       </p>
+
+      <InstallApp place="order" />
 
       {settings.support_phone && (
         <a

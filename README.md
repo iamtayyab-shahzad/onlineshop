@@ -132,7 +132,11 @@ On a phone, or with your browser's phone view (F12, then the device toolbar):
    - Close and reopen the browser; the cart is still there.
 6. **Checkout**: see "Test Stage 2" below.
 7. **Account**: shows exactly the five sections. **Help**: shows call/WhatsApp buttons, delivery info, how-to-order steps and a payment safety warning.
-8. **Install**: in Chrome on Android, after `npm run build && npm start`, use the menu and pick "Install app".
+8. **Install**: on the live https site, in Chrome on Android, the home page shows an **Install our app** card. One tap opens Chrome's install box. On iPhone the card shows the Share → *Add to Home Screen* steps instead.
+   - The card also appears after an order is placed and on the Help page.
+   - The home-page card can be closed for 14 days.
+   - It disappears once the app is installed, and never shows inside the installed app.
+   - On Android browsers that don't offer one-tap install (for example, a link opened inside WhatsApp), only the Help page shows it, with the ⋮ menu steps.
 
 ## Test Stage 2 by hand
 
