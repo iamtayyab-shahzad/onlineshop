@@ -17,7 +17,7 @@ export type InstallMode =
   | "hidden" // already installed, running as the app, or not on the client yet
   | "prompt" // one-tap install (Android Chrome, Samsung Internet, desktop Chrome/Edge)
   | "ios" // iPhone / iPad: show the Share → Add to Home Screen steps
-  | "manual" // Android without the event (in-app browser, or Chrome decided not to offer it)
+  | "manual" // Android before Chrome offers one-tap install (it waits for a tap + ~30 s on the site), or an in-app browser
   | "installed"; // just installed from this page
 
 const DISMISS_KEY = "install-banner-dismissed-until";
@@ -25,6 +25,7 @@ const DISMISS_DAYS = 14;
 
 let deferred: InstallEvent | null = null;
 let justInstalled = false;
+let installedAlready = false; // the app is on this phone; the customer is in the browser anyway
 let dismissedUntil = 0;
 const listeners = new Set<() => void>();
 
@@ -61,6 +62,19 @@ if (isBrowser) {
     justInstalled = true;
     emit();
   });
+  // Android Chrome can tell a page that its own app is installed (manifest "related_applications").
+  const nav = navigator as Navigator & { getInstalledRelatedApps?: () => Promise<{ platform: string }[]> };
+  nav
+    .getInstalledRelatedApps?.()
+    .then((apps) => {
+      if (apps.some((a) => a.platform === "webapp")) {
+        installedAlready = true;
+        emit();
+      }
+    })
+    .catch(() => {
+      // not supported: rely on the other checks
+    });
 }
 
 export function subscribe(listener: () => void) {
@@ -74,6 +88,7 @@ export function getInstallMode(): InstallMode {
   if (justInstalled) return "installed";
   if (isStandalone()) return "hidden";
   if (deferred) return "prompt";
+  if (installedAlready) return "hidden";
   if (isIos) return "ios";
   if (isAndroid) return "manual";
   return "hidden";

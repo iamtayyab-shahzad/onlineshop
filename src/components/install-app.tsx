@@ -25,8 +25,10 @@ const COPY: Record<Place, { title: string; text: string }> = {
  * - Android Chrome: one tap opens the browser's own install box.
  * - iPhone: shows the Share → Add to Home Screen steps (Apple allows no install button).
  * - Hidden once installed, and inside the installed app.
- * On the home page it can be closed for two weeks; the Help page always shows it, with the menu steps
- * for Android browsers that do not offer one-tap install.
+ * - Android before Chrome offers one-tap install (Chrome waits until the customer has tapped the page and
+ *   spent about 30 seconds on the site), or inside WhatsApp's browser: shows the ⋮ menu steps. It switches
+ *   to the one-tap button by itself as soon as Chrome allows it.
+ * On the home page it can be closed for two weeks.
  */
 export function InstallApp({ place }: { place: Place }) {
   const mode = useSyncExternalStore(subscribe, getInstallMode, getServerInstallMode);
@@ -35,7 +37,6 @@ export function InstallApp({ place }: { place: Place }) {
   const [busy, setBusy] = useState(false);
 
   if (mode === "hidden") return null;
-  if (mode === "manual" && place !== "help") return null;
   if (place === "home" && dismissed && mode !== "installed") return null;
 
   if (mode === "installed") {
@@ -155,15 +156,14 @@ function IosSteps() {
 function AndroidSteps() {
   return (
     <ol className="mt-4 flex flex-col gap-3">
-      <Step n={1}>Open this page in Chrome.</Step>
-      <Step n={2}>
-        Tap the menu
+      <Step n={1}>
+        In Chrome, tap the menu
         <Key>
           <EllipsisVertical className="size-4" aria-label="three dots" />
         </Key>
         at the top right.
       </Step>
-      <Step n={3}>
+      <Step n={2}>
         Tap <Key>Install app</Key> or <Key>Add to Home screen</Key>, then <Key>Install</Key>.
       </Step>
       <li className="rounded-lg bg-notice p-3 text-sm text-notice-foreground">
